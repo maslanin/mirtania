@@ -28,7 +28,7 @@ SET time_zone = "+00:00";
 
 CREATE TABLE IF NOT EXISTS `arena` (
   `id` int(12) NOT NULL,
-  `login` text NOT NULL,
+  `login` text NOT NULL DEFAULT '',
   `time` int(12) NOT NULL DEFAULT '0',
   `kom1` int(12) NOT NULL DEFAULT '0',
   `kom2` int(12) NOT NULL DEFAULT '0',
@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS `arena` (
   `maxlvl1` int(12) NOT NULL DEFAULT '0',
   `minlvl2` int(12) NOT NULL DEFAULT '0',
   `maxlvl2` int(12) NOT NULL DEFAULT '0',
-  `comment` text NOT NULL,
+  `comment` text NOT NULL DEFAULT '',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -53,8 +53,8 @@ CREATE TABLE IF NOT EXISTS `arenda` (
   `cena` int(12) NOT NULL DEFAULT '0',
   `srok` int(12) NOT NULL DEFAULT '0',
   `time` int(12) NOT NULL DEFAULT '0',
-  `login` text NOT NULL,
-  `arenda_login` text NOT NULL,
+  `login` text NOT NULL DEFAULT '',
+  `arenda_login` text NOT NULL DEFAULT '',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -67,8 +67,8 @@ CREATE TABLE IF NOT EXISTS `arenda` (
 CREATE TABLE IF NOT EXISTS `battle` (
   `id` int(12) NOT NULL AUTO_INCREMENT,
   `flag_boi` int(1) NOT NULL DEFAULT '0',
-  `login` text NOT NULL,
-  `login2` text NOT NULL,
+  `login` text NOT NULL DEFAULT '',
+  `login2` text NOT NULL DEFAULT '',
   `boistart` int(12) NOT NULL DEFAULT '0',
   `sbrospar` int(12) NOT NULL DEFAULT '0',
   `round` int(12) NOT NULL DEFAULT '0',
@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS `battlelog` (
   `id` int(12) NOT NULL AUTO_INCREMENT,
   `boi_id` int(12) NOT NULL DEFAULT '0',
   `timelog` int(12) NOT NULL DEFAULT '0',
-  `log` text NOT NULL,
+  `log` text NOT NULL DEFAULT '',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -98,14 +98,14 @@ CREATE TABLE IF NOT EXISTS `battlelog` (
 
 CREATE TABLE IF NOT EXISTS `chat` (
   `id` int(12) NOT NULL AUTO_INCREMENT,
-  `login` text NOT NULL,
-  `message` text NOT NULL,
+  `login` text NOT NULL DEFAULT '',
+  `message` text NOT NULL DEFAULT '',
   `room` int(1) NOT NULL DEFAULT '0',
-  `privat` text NOT NULL,
+  `privat` text NOT NULL DEFAULT '',
   `flag_privat` int(1) NOT NULL DEFAULT '0',
   `sex` int(1) NOT NULL DEFAULT '0',
   `timemess` int(12) NOT NULL DEFAULT '0',
-  `klan` text NOT NULL,
+  `klan` text NOT NULL DEFAULT '',
   `party` int(12) NOT NULL DEFAULT '0',
   `admin` int(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`)
@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS `chat` (
 
 CREATE TABLE IF NOT EXISTS `combat` (
   `id` int(12) NOT NULL AUTO_INCREMENT,
-  `login` text NOT NULL,
+  `login` text NOT NULL DEFAULT '',
   `sila` int(12) NOT NULL DEFAULT '0',
   `inta` int(12) NOT NULL DEFAULT '0',
   `lovka` int(12) NOT NULL DEFAULT '0',
@@ -149,10 +149,10 @@ CREATE TABLE IF NOT EXISTS `combat` (
 
 CREATE TABLE IF NOT EXISTS `forum_comm` (
   `id` int(12) NOT NULL AUTO_INCREMENT,
-  `login` text NOT NULL,
+  `login` text NOT NULL DEFAULT '',
   `id_topic` int(12) NOT NULL DEFAULT '0',
   `razdel` int(1) NOT NULL DEFAULT '0',
-  `message` text NOT NULL,
+  `message` text NOT NULL DEFAULT '',
   `time` int(12) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -165,11 +165,11 @@ CREATE TABLE IF NOT EXISTS `forum_comm` (
 
 CREATE TABLE IF NOT EXISTS `forum_topic` (
   `id` int(12) NOT NULL AUTO_INCREMENT,
-  `login` text NOT NULL,
+  `login` text NOT NULL DEFAULT '',
   `razdel` int(3) NOT NULL DEFAULT '0',
-  `name` text NOT NULL,
+  `name` text NOT NULL DEFAULT '',
   `timetopic` int(12) NOT NULL DEFAULT '0',
-  `message` text NOT NULL,
+  `message` text NOT NULL DEFAULT '',
   `lastcomm` int(12) NOT NULL DEFAULT '0',
   `flag_close` int(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`)
@@ -184,13 +184,13 @@ CREATE TABLE IF NOT EXISTS `forum_topic` (
 CREATE TABLE IF NOT EXISTS `invent` (
   `id` int(12) NOT NULL AUTO_INCREMENT,
   `ido` int(12) NOT NULL DEFAULT '0',
-  `login` text NOT NULL,
+  `login` text NOT NULL DEFAULT '',
   `flag_pered` int(1) NOT NULL DEFAULT '0',
   `flag_rinok` int(1) NOT NULL DEFAULT '0',
   `flag_equip` int(1) NOT NULL DEFAULT '0',
   `flag_arenda` int(1) NOT NULL DEFAULT '0',
   `flag_sklad` int(1) NOT NULL DEFAULT '0',
-  `arenda_login` text NOT NULL,
+  `arenda_login` text NOT NULL DEFAULT '',
   `arenda_time` int(12) NOT NULL DEFAULT '0',
   `arenda_price` int(12) NOT NULL DEFAULT '0',
   `rinok_price` int(12) NOT NULL DEFAULT '0',
@@ -207,12 +207,12 @@ CREATE TABLE IF NOT EXISTS `invent` (
 
 CREATE TABLE IF NOT EXISTS `ipsoft` (
   `id` int(12) NOT NULL AUTO_INCREMENT,
-  `login` text NOT NULL,
+  `login` text NOT NULL DEFAULT '',
   `date` int(12) NOT NULL DEFAULT '0',
-  `ip` text NOT NULL,
-  `host` text NOT NULL,
-  `soft` text NOT NULL,
-  `session` text NOT NULL,
+  `ip` text NOT NULL DEFAULT '',
+  `host` text NOT NULL DEFAULT '',
+  `soft` text NOT NULL DEFAULT '',
+  `session` text NOT NULL DEFAULT '',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
 
@@ -224,7 +224,7 @@ CREATE TABLE IF NOT EXISTS `ipsoft` (
 
 CREATE TABLE IF NOT EXISTS `item` (
   `id` int(12) NOT NULL AUTO_INCREMENT,
-  `name` text NOT NULL,
+  `name` text NOT NULL DEFAULT '',
   `lvl` int(12) NOT NULL DEFAULT '0',
   `price` int(12) NOT NULL DEFAULT '0',
   `krit` int(12) NOT NULL DEFAULT '0',
@@ -237,9 +237,9 @@ CREATE TABLE IF NOT EXISTS `item` (
   `inta` int(12) NOT NULL DEFAULT '0',
   `lovka` int(12) NOT NULL DEFAULT '0',
   `intel` int(12) NOT NULL DEFAULT '0',
-  `art` text NOT NULL,
-  `info` text NOT NULL,
-  `equip` text NOT NULL,
+  `art` text NOT NULL DEFAULT '',
+  `info` text NOT NULL DEFAULT '',
+  `equip` text NOT NULL DEFAULT '',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=707 DEFAULT CHARSET=utf8;
 
@@ -964,16 +964,16 @@ INSERT INTO `item` (`id`, `name`, `lvl`, `price`, `krit`, `uvorot`, `uron`, `bro
 
 CREATE TABLE IF NOT EXISTS `klans` (
   `id` int(12) NOT NULL AUTO_INCREMENT,
-  `name` text NOT NULL,
+  `name` text NOT NULL DEFAULT '',
   `datereg` int(12) NOT NULL DEFAULT '0',
   `nalog_time` int(12) NOT NULL DEFAULT '0',
   `points` int(12) NOT NULL DEFAULT '0',
   `lvl` int(12) NOT NULL DEFAULT '1',
   `kazna` int(12) NOT NULL DEFAULT '0',
-  `point` int(12) NOT NULL,
-  `kamni` int(12) NOT NULL,
-  `loc` int(12) NOT NULL,
-  `altar` int(12) NOT NULL,
+  `point` int(12) NOT NULL DEFAULT '0',
+  `kamni` int(12) NOT NULL DEFAULT '0',
+  `loc` int(12) NOT NULL DEFAULT '0',
+  `altar` int(12) NOT NULL DEFAULT '0',
   `pivo` int(12) NOT NULL DEFAULT '0',
   `laba` int(12) NOT NULL DEFAULT '0',
   `kuznica` int(12) NOT NULL DEFAULT '0',
@@ -989,9 +989,9 @@ CREATE TABLE IF NOT EXISTS `klans` (
 
 CREATE TABLE IF NOT EXISTS `klan_log` (
   `id` int(12) NOT NULL AUTO_INCREMENT,
-  `login` text NOT NULL,
-  `log` text NOT NULL,
-  `klan` text NOT NULL,
+  `login` text NOT NULL DEFAULT '',
+  `log` text NOT NULL DEFAULT '',
+  `klan` text NOT NULL DEFAULT '',
   `date` int(12) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -1006,9 +1006,9 @@ CREATE TABLE IF NOT EXISTS `letters` (
   `id` int(12) NOT NULL AUTO_INCREMENT,
   `lid` int(12) NOT NULL DEFAULT '0',
   `timemess` int(12) NOT NULL DEFAULT '0',
-  `login` text NOT NULL,
-  `login_from` text NOT NULL,
-  `mess` text NOT NULL,
+  `login` text NOT NULL DEFAULT '',
+  `login_from` text NOT NULL DEFAULT '',
+  `mess` text NOT NULL DEFAULT '',
   `timeread` int(12) NOT NULL DEFAULT '0',
   `read_flag` int(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`)
@@ -1023,7 +1023,7 @@ CREATE TABLE IF NOT EXISTS `letters` (
 CREATE TABLE IF NOT EXISTS `loc` (
   `id` int(12) NOT NULL AUTO_INCREMENT,
   `map_id` int(12) NOT NULL DEFAULT '0',
-  `name` text NOT NULL,
+  `name` text NOT NULL DEFAULT '',
   `N` int(1) NOT NULL DEFAULT '0',
   `S` int(1) NOT NULL DEFAULT '0',
   `W` int(1) NOT NULL DEFAULT '0',
@@ -1031,7 +1031,7 @@ CREATE TABLE IF NOT EXISTS `loc` (
   `X` int(12) NOT NULL DEFAULT '0',
   `Y` int(12) NOT NULL DEFAULT '0',
   `peace` int(1) NOT NULL DEFAULT '0',
-  `info` text NOT NULL,
+  `info` text NOT NULL DEFAULT '',
   PRIMARY KEY (`id`),
   UNIQUE KEY `id` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=133 DEFAULT CHARSET=utf8;
@@ -1182,9 +1182,9 @@ INSERT INTO `loc` (`id`, `map_id`, `name`, `N`, `S`, `W`, `E`, `X`, `Y`, `peace`
 
 CREATE TABLE IF NOT EXISTS `log_ipsoft` (
   `id` int(12) NOT NULL AUTO_INCREMENT,
-  `login` text NOT NULL,
+  `login` text NOT NULL DEFAULT '',
   `date` int(12) NOT NULL DEFAULT '0',
-  `log` text NOT NULL,
+  `log` text NOT NULL DEFAULT '',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -1196,9 +1196,9 @@ CREATE TABLE IF NOT EXISTS `log_ipsoft` (
 
 CREATE TABLE IF NOT EXISTS `log_peredach` (
   `id` int(12) NOT NULL AUTO_INCREMENT,
-  `login` text NOT NULL,
-  `log` text NOT NULL,
-  `login_per` text NOT NULL,
+  `login` text NOT NULL DEFAULT '',
+  `log` text NOT NULL DEFAULT '',
+  `login_per` text NOT NULL DEFAULT '',
   `dateper` int(12) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -1212,8 +1212,8 @@ CREATE TABLE IF NOT EXISTS `log_peredach` (
 CREATE TABLE IF NOT EXISTS `magic` (
   `id` int(12) NOT NULL AUTO_INCREMENT,
   `mag_id` int(12) NOT NULL DEFAULT '0',
-  `login` text NOT NULL,
-  `name` text NOT NULL,
+  `login` text NOT NULL DEFAULT '',
+  `name` text NOT NULL DEFAULT '',
   `mana` int(12) NOT NULL DEFAULT '0',
   `date` int(12) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`)
@@ -1229,7 +1229,7 @@ CREATE TABLE IF NOT EXISTS `map` (
   `id` int(12) NOT NULL AUTO_INCREMENT,
   `x` int(12) NOT NULL DEFAULT '1',
   `y` int(12) NOT NULL DEFAULT '1',
-  `name` text NOT NULL,
+  `name` text NOT NULL DEFAULT '',
   `peace` int(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `id` (`id`)
@@ -1250,9 +1250,9 @@ INSERT INTO `map` (`id`, `x`, `y`, `name`, `peace`) VALUES
 
 CREATE TABLE IF NOT EXISTS `news` (
   `id` int(12) NOT NULL AUTO_INCREMENT,
-  `login` text NOT NULL,
-  `title` text NOT NULL,
-  `text` text NOT NULL,
+  `login` text NOT NULL DEFAULT '',
+  `title` text NOT NULL DEFAULT '',
+  `text` text NOT NULL DEFAULT '',
   `datenews` int(12) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=63 DEFAULT CHARSET=utf8;
@@ -1333,8 +1333,8 @@ INSERT INTO `news` (`id`, `login`, `title`, `text`, `datenews`) VALUES
 
 CREATE TABLE IF NOT EXISTS `recpass` (
   `id` int(12) NOT NULL AUTO_INCREMENT,
-  `email` text NOT NULL,
-  `code` text NOT NULL,
+  `email` text NOT NULL DEFAULT '',
+  `code` text NOT NULL DEFAULT '',
   `daterec` int(12) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -1347,11 +1347,11 @@ CREATE TABLE IF NOT EXISTS `recpass` (
 
 CREATE TABLE IF NOT EXISTS `settings` (
   `id` int(12) NOT NULL AUTO_INCREMENT,
-  `name` text NOT NULL,
-  `bot` text NOT NULL,
-  `admin` text NOT NULL,
+  `name` text NOT NULL DEFAULT '',
+  `bot` text NOT NULL DEFAULT '',
+  `admin` text NOT NULL DEFAULT '',
   `reg` int(1) NOT NULL DEFAULT '1',
-  `mess` text NOT NULL,
+  `mess` text NOT NULL DEFAULT '',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8;
 
@@ -1370,36 +1370,36 @@ INSERT INTO `settings` (`id`, `name`, `bot`, `admin`, `reg`, `mess`) VALUES
 
 CREATE TABLE IF NOT EXISTS `users` (
   `id` int(12) NOT NULL AUTO_INCREMENT,
-  `login` text NOT NULL,
-  `email` text NOT NULL,
-  `pass` text NOT NULL,
-  `name` text NOT NULL,
-  `infa` text NOT NULL,
-  `brak` text NOT NULL,
-  `ignor` text NOT NULL,
-  `kont` text NOT NULL,
+  `login` text NOT NULL DEFAULT '',
+  `email` text NOT NULL DEFAULT '',
+  `pass` text NOT NULL DEFAULT '',
+  `name` text NOT NULL DEFAULT '',
+  `infa` text NOT NULL DEFAULT '',
+  `brak` text NOT NULL DEFAULT '',
+  `ignor` text NOT NULL DEFAULT '',
+  `kont` text NOT NULL DEFAULT '',
   `sex` int(1) NOT NULL DEFAULT '0',
   `lvl` int(12) NOT NULL DEFAULT '1',
   `loc` int(12) NOT NULL DEFAULT '1',
   `lastportal` int(12) NOT NULL DEFAULT '0',
-  `host` text NOT NULL,
-  `ip` text NOT NULL,
-  `soft` text NOT NULL,
-  `session` text NOT NULL,
+  `host` text NOT NULL DEFAULT '',
+  `ip` text NOT NULL DEFAULT '',
+  `soft` text NOT NULL DEFAULT '',
+  `session` text NOT NULL DEFAULT '',
   `flag_blok` int(1) NOT NULL DEFAULT '0',
-  `zachto_blok` text NOT NULL,
+  `zachto_blok` text NOT NULL DEFAULT '',
   `ban` int(12) NOT NULL DEFAULT '0',
   `ruda` int(12) NOT NULL DEFAULT '0',
   `money` int(12) NOT NULL DEFAULT '0',
   `vip` int(12) NOT NULL DEFAULT '0',
   `bank` int(12) NOT NULL DEFAULT '0',
   `bankdate` int(12) NOT NULL DEFAULT '0',
-  `klan_invite` text NOT NULL,
-  `klan` text NOT NULL,
+  `klan_invite` text NOT NULL DEFAULT '',
+  `klan` text NOT NULL DEFAULT '',
   `klan_time` int(12) NOT NULL DEFAULT '0',
   `klan_status` int(1) NOT NULL DEFAULT '0',
   `nalog` int(12) NOT NULL DEFAULT '0',
-  `party` text NOT NULL,
+  `party` text NOT NULL DEFAULT '',
   `win` int(12) NOT NULL DEFAULT '0',
   `lost` int(12) NOT NULL DEFAULT '0',
   `zapret` int(12) NOT NULL DEFAULT '0',
@@ -1443,10 +1443,10 @@ CREATE TABLE IF NOT EXISTS `users` (
   `bonus_time` int(12) NOT NULL DEFAULT '0',
   `p_fishman` int(12) NOT NULL DEFAULT '0',
   `fishrod` int(12) NOT NULL DEFAULT '0',
-  `kvest` text NOT NULL,
-  `kvest_now` int(12) NOT NULL,
+  `kvest` text NOT NULL DEFAULT '',
+  `kvest_now` int(12) NOT NULL DEFAULT '0',
   `kvest_step` int(12) NOT NULL DEFAULT '0',
-  `code` text NOT NULL,
+  `code` text NOT NULL DEFAULT '',
   `autoreg` int(1) NOT NULL DEFAULT '0',
   `ref` int(12) NOT NULL DEFAULT '1',
   PRIMARY KEY (`id`)
