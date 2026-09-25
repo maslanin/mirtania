@@ -1,742 +1,682 @@
 <?php
-##############
-# 24.11.2014 #
-##############
+/**
+ * Движок боя.
+ * PHP 8.2-совместимая версия.
+ */
 
-require_once('inc/top.php');
-require_once('inc/check.php');	// вход в игру
-require_once('inc/head.php');
-require_once('class/items.php');
+require_once __DIR__ . '/inc/top.php';
+require_once __DIR__ . '/inc/check.php';
+require_once __DIR__ . '/inc/head.php';
+require_once __DIR__ . '/class/items.php';
 
-$mod = isset($_REQUEST['mod']) ? $_REQUEST['mod'] : '';
-$magic = isset($_REQUEST['magic']) ? intval($_REQUEST['magic']) : 0;
-$flag_boi = 1;	// типа бой идёт
+$mod   = isset($_REQUEST['mod'])   ? $_REQUEST['mod']   : '';
+$magic = isset($_REQUEST['magic']) ? (int)$_REQUEST['magic'] : 0;
+$flag_boi = 1;
 
+// Праздники
 $prazdn = 0;
 $date = date('d.m');
 $gd = getdate();
-if($date == '29.12' or $date == '30.12' or $date == '31.12' or $date == '01.01' or $date == '02.01') $prazdn = 1;
-if($date == '14.01') $prazdn = 1;
-if($date == '14.02') $prazdn = 1;
-if($date == '23.02') $prazdn = 1;
-if($date == '08.03') $prazdn = 1;
-if($date == '01.04') $prazdn = 1;
-if($date == '01.05' or $date == '02.05' or $date == '03.05' or $date == '09.05') $prazdn = 1;
-if($date == '01.06') $prazdn = 1;
-if($date == '12.06') $prazdn = 1;
-if($gd['yday'] == 255) $prazdn = 1;
-if($date == '12.12') $prazdn = 1;
+if (in_array($date, ['29.12','30.12','31.12','01.01','02.01','14.01','14.02','23.02','08.03','01.04','01.05','02.05','03.05','09.05','01.06','12.06','12.12'], true)) $prazdn = 1;
+if ($gd['yday'] == 255) $prazdn = 1;
 
-if($f['status'] == 2)
-	{
-	knopka('arena.php', 'У вас заявка на арене', 1);
-	fin();
-	}
-//проверим, есть ли вообще бой с вашим ИД
-$q = $db->query("select * from `battle` where id={$f['boi_id']} limit 1;");
-if($q->num_rows == 0) $flag_boi = 0; // боя нет
-$boi = $q->fetch_assoc();
-$bid = $boi['id'];	//для краткости, чтобы не писать нигде $f['boi_id'] или $boi['id']
-if($boi['flag_boi'] == 0) $flag_boi = 0;
+if ($f['status'] == 2) {
+    knopka('arena.php', 'У вас заявка на арене', 1);
+    fin();
+}
 
-// кто начал бой
-if(empty($bz['login']))
-	{
-	$q = $db->query("update `battle` set login='{$f['login']}' where id={$bid} limit 1;");
-	$bz['login'] = $f['login'];
-	}
+/**
+ * Подготовка бойца: полные статы с экипировкой/допингом.
+ */
+function prepareFighter(array $fighter, ?array $userData): array
+{
+    if (!empty($fighter['flag_bot'])) {
+        $fighter['krit']   = (int)$fighter['inta'] * 10;
+        $fighter['uvorot'] = (int)$fighter['lovka'] * 10;
+        $fighter['uron']   = (int)($fighter['sila'] * 0.9);
+        $fighter['bron']   = (int)$fighter['sila'];
+        $fighter['ref']    = 0;
+        $fighter['vip']    = 0;
+        $fighter['intel']  = 0;
+        $fighter['klan']   = '';
+        $fighter['sopr']   = 0;
+        return $fighter;
+    }
+    if ($userData) {
+        $fighter['intel']         = (int)$userData['intel'];
+        $fighter['zdor']          = (int)$userData['zdor'];
+        $fighter['doping']        = (int)$userData['doping'];
+        $fighter['doping_time']   = (int)$userData['doping_time'];
+        $fighter['altar']         = (int)$userData['altar'];
+        $fighter['altar_time']    = (int)$userData['altar_time'];
+        $fighter = calcparam($fighter);
+        $fighter['ref']           = (int)$userData['ref'];
+        $fighter['vip']           = (int)$userData['vip'];
+        $fighter['klan']          = $userData['klan'];
+    }
+    return $fighter;
+}
 
-//проверим, идет наш бой или уже закончен
-if(empty($flag_boi))
-	{
-	require_once('inc/hpstring.php');
-	knopka('loc.php', 'Бой завершен', 1);
-	$q = $db->query("UPDATE `users` SET status=0,lastdate='{$t}' WHERE id='{$f['id']}' LIMIT 1;");
-	$q = $db->query("SELECT log FROM `battlelog` WHERE boi_id='{$bid}' ORDER BY id DESC LIMIT 3;");
-	echo '<div class="board" style="text-align:left">';
-	while ($stlog = $q->fetch_assoc()) echo $stlog['log'];
-	echo '</div>';
-	fin();
-	}
+// Проверим, есть ли бой
+$q = $db->query("SELECT * FROM `battle` WHERE `id` = " . (int)$f['boi_id'] . " LIMIT 1;");
+if ($q === false || $q->num_rows == 0) $flag_boi = 0;
+$boi = $q ? $q->fetch_assoc() : null;
+$bid = $boi ? (int)$boi['id'] : 0;
+if ($boi && $boi['flag_boi'] == 0) $flag_boi = 0;
 
-//объявим некоторые переменные
-$curtime = $_SERVER['REQUEST_TIME'];			//чтобы не вызывать $_SERVER['REQUEST_TIME'] по 100 раз
-$curdate = Date('H:i:s');	//посмотрим, не пригодится - уберем
-$final_log = '';			//что отображается при завершении боя
-$komanda1 = '';				//1я команда бойцов (с тегами)
-$komanda2 = '';				//2я команда бойцов (с тегами)
-$kom1 = array();			//1я команда бойцов (логины)
-$kom2 = array();			//2я команда бойцов (логины)
-$kom1sum = 0;				//сумма бойцов 1й команды
-$kom2sum = 0;				//сумма бойцов 2й команды
-$logboi = '';				//для лога боя
-$me = array();				//боец, который бьет
-$uz = array();				//боец, который отвечает на удар
-$hodtime = 120;					//защита от повторного удара по жертве (за исключением ответки)
-$pkstr = '';				//строчка с шансами попасть
-$ost = 20 - ($curtime - $boi['sbrospar']);
-if($ost < 0) $ost = 0;
+if ($boi && empty($boi['login'])) {
+    $db->query("UPDATE `battle` SET `login` = '" . $db->real_escape_string($f['login']) . "' WHERE `id` = {$bid} LIMIT 1;");
+}
 
-//вынесем все данные из боевой таблице о себе в отдельный массив
-$q = $db->query("select * from `combat` where boi_id={$bid} and login='{$f['login']}' limit 1;");
-$me = $q->fetch_assoc();
-// если запрос удара есть, а в таблице его нет, добавим
-if(!empty($_REQUEST['ud']) and !empty($_REQUEST['bl']) and (empty($me['kuda_udar']) or empty($me['kuda_blok'])))
-	{
-	$me['kuda_udar'] = intval($_REQUEST['ud']);
-	$me['kuda_blok'] = intval($_REQUEST['bl']);
-	$q = $db->query("update `combat` set kuda_udar={$me['kuda_udar']},kuda_blok={$me['kuda_blok']} where id={$me['id']} limit 1;");
-	}
-//сам удар, подгружается как можно раньше, чтобы меньше одного и того же грузить из базы (типа лога боя)
-if(!empty($me['kuda_udar']) and $me['hpnow'] > 0 and !empty($me['sopernik']))
-	{
-	//загрузим бойца, вся красота в том, что боты и игроки теперь в одной таблице => уменьшение объема кода
-	$q = $db->query("select * from `combat` where id={$me['sopernik']} and boi_id={$bid} limit 1;");
-	$uz = $q->fetch_assoc();
-	if($uz['hpnow'] <= 0)
-		{
-		$me['sopernik'] = 0;
-		$q = $db->query("update `combat` set sopernik=0 where id='{$me['id']}' limit 1;");
-		msg2('Ваш противник уже убит!');
-		knopka('battle.php', 'Обновить', 1);
-		fin();
-		}
-	if(!empty($uz['kuda_udar']) and !empty($uz['kuda_blok']))
-		{
-		$me['intel'] = $f['intel'];
-		$me['zdor'] = $f['zdor'];
-		$me['doping'] = $f['doping'];
-		$me['doping_time'] = $f['doping_time'];
-		$me['altar'] = $f['altar'];
-		$me['altar_time'] = $f['altar_time'];
-		$me = calcparam($me);
-		$me['ref'] = $f['ref'];
-		$me['vip'] = $f['vip'];
-		$me['klan'] = $f['klan'];
-		if($uz['flag_bot'] == 1)
-			{
-			$uz['krit'] = $uz['inta'] * 10;
-			$uz['uvorot'] = $uz['lovka'] * 10;
-			$uz['uron'] = intval($uz['sila'] * 0.9);
-			//$uz['uron'] = intval($uz['sila'] * 1.2);
-			$uz['bron'] = $uz['sila'];
-			$uz['ref'] = 0;
-			$uz['vip'] = 0;
-			$uz['intel'] = 0;
-			$uz['klan'] = '';
-			$uz['sopr'] = 0;
-			}
-		else
-			{
-			//дополнительный запрос, чтобы взять параметры соперника из таблицы users
-			$q = $db->query("select intel,doping,doping_time,altar,altar_time,zdor,sila,lovka,inta,ref,manamax,mananow,vip,klan from `users` where login='{$uz['login']}' limit 1;");
-			$uz2 = $q->fetch_assoc();
-			$uz['intel'] = $uz2['intel'];
-			$uz['zdor'] = $uz2['zdor'];
-			$uz['doping'] = $uz2['doping'];
-			$uz['doping_time'] = $uz2['doping_time'];
-			$uz['altar'] = $uz2['altar'];
-			$uz['altar_time'] = $uz2['altar_time'];
-			$uz = calcparam($uz);
-			$uz['ref'] = $uz2['ref'];
-			$uz['vip'] = $uz2['vip'];
-			$uz['klan'] = $uz2['klan'];
-			}
-		$uron_zaudar = mt_rand(intval($me['uron']), intval($me['uron'] * 2));
-		$s_uron_zaudar = mt_rand(intval($uz['uron']), intval($uz['uron'] * 2));
+if (empty($flag_boi)) {
+    require_once __DIR__ . '/inc/hpstring.php';
+    knopka('loc.php', 'Бой завершен', 1);
+    $db->query("UPDATE `users` SET `status` = 0, `boi_id` = 0, `lastdate` = '{$t}' WHERE `id` = " . (int)$f['id'] . " LIMIT 1;");
+    if ($bid > 0) {
+        $db->query("DELETE FROM `combat` WHERE `boi_id` = " . (int)$bid . ";");
+        $db->query("UPDATE `battle` SET `flag_boi` = 0 WHERE `id` = " . (int)$bid . " LIMIT 1;");
+    } else {
+        $db->query("DELETE FROM `combat` WHERE `login` = '" . $db->real_escape_string($f['login']) . "';");
+    }
+    if ($bid > 0) {
+        $q = $db->query("SELECT `log` FROM `battlelog` WHERE `boi_id` = '{$bid}' ORDER BY `id` DESC LIMIT 3;");
+        echo '<div class="board" style="text-align:left">';
+        if ($q) {
+            while ($stlog = $q->fetch_assoc()) echo $stlog['log'];
+        }
+        echo '</div>';
+    }
+    fin();
+}
 
-		if($me['krit'] < 1) $me['krit'] = 1;
-		if($me['uvorot'] < 1) $me['uvorot'] = 1;
-		if($uz['krit'] < 1) $uz['krit'] = 1;
-		if($uz['uvorot'] < 1) $uz['uvorot'] = 1;
-		if(!isset($me['intel']) or $me['intel'] < 1) $me['intel'] = 1;
-		if(!isset($uz['intel']) or $uz['intel'] < 1) $uz['intel'] = 1;
-		$me['sopr'] = intval($me['bron'] * 0.1 + $me['intel']);
-		if($me['sopr'] > 99) $me['sopr'] = 99;
-		$uz['sopr'] = intval($uz['bron'] * 0.1 + $uz['intel']);
-		if($uz['sopr'] > 99) $uz['sopr'] = 99;
+$curtime = time();
+$curdate = date('H:i:s');
+$final_log = '';
+$komanda1 = '';
+$komanda2 = '';
+$kom1 = [];
+$kom2 = [];
+$kom1sum = 0;
+$kom2sum = 0;
+$logboi = '';
+$me = [];
+$uz = [];
+$hodtime = 120;
+$pkstr_display = '';
+$ost = 20 - ($curtime - (int)$boi['sbrospar']);
+if ($ost < 0) $ost = 0;
 
-		if(empty($me['kuda_udar'])) $me['kuda_udar'] = 1;
-		if(empty($me['kuda_blok'])) $me['kuda_blok'] = 1;
-		if(empty($uz['kuda_udar'])) $uz['kuda_udar'] = 1;
-		if(empty($uz['kuda_blok'])) $uz['kuda_blok'] = 1;
-		if($me['kuda_udar'] < 1 or 3 < $me['kuda_udar']) $me['kuda_udar'] = 1;
-		if($me['kuda_blok'] < 1 or 3 < $me['kuda_blok']) $me['kuda_blok'] = 1;
-		if($uz['flag_bot'] == 1)
-			{
-			if($me['kuda_udar'] == 1 and $uz['kuda_blok'] == 1) $uz['kuda_blok'] = 2;
-			if($me['kuda_udar'] == 2 and $uz['kuda_blok'] == 2) $uz['kuda_blok'] = 3;
-			if($me['kuda_udar'] == 3 and $uz['kuda_blok'] == 3) $uz['kuda_blok'] = 1;
-			}
-		if($me['kuda_udar'] == 1) $ud_str = 'голову';
-		if($me['kuda_udar'] == 2) $ud_str = 'грудь';
-		if($me['kuda_udar'] == 3) $ud_str = 'ноги';
-		if($uz['kuda_udar'] == 1) $ud_str2 = 'голову';
-		if($uz['kuda_udar'] == 2) $ud_str2 = 'грудь';
-		if($uz['kuda_udar'] == 3) $ud_str2 = 'ноги';
-		if($me['krit'] < 1) $me['krit'] = 1;
-		if($me['uvorot'] < 1) $me['uvorot'] = 1;
-		if($uz['krit'] < 1) $uz['krit'] = 1;
-		if($uz['uvorot'] < 1) $uz['uvorot'] = 1;
+// Данные обо мне из combat
+$q = $db->query("SELECT * FROM `combat` WHERE `boi_id` = {$bid} AND `login` = '" . $db->real_escape_string($f['login']) . "' LIMIT 1;");
+$me = $q ? $q->fetch_assoc() : null;
+if (!$me) {
+    $db->query("UPDATE `users` SET `status` = 0, `boi_id` = 0 WHERE `id` = " . (int)$f['id'] . " LIMIT 1;");
+    $db->query("DELETE FROM `combat` WHERE `login` = '" . $db->real_escape_string($f['login']) . "';");
+    require_once __DIR__ . '/inc/hpstring.php';
+    msg2('Вы не в бою.');
+    knopka('loc.php', 'В игру', 1);
+    if ($bid > 0) {
+        $q = $db->query("SELECT `log` FROM `battlelog` WHERE `boi_id` = '{$bid}' ORDER BY `id` DESC LIMIT 3;");
+        if ($q && $q->num_rows > 0) {
+            echo '<div class="board" style="text-align:left">';
+            while ($stlog = $q->fetch_assoc()) echo $stlog['log'];
+            echo '</div>';
+        }
+    }
+    fin();
+}
 
-		$kubik = mt_rand(-6, 6);
-		$raznica = intval($me['krit'] / $uz['uvorot'] * 10);
-		if($raznica < 3) $raznica = 3;
-		$raznica += $kubik;
-		if($raznica <= 4) $kakoy_udar = 0;
-		if(4 < $raznica and $raznica < 16) $kakoy_udar = 1;
-		if(16 <= $raznica and $raznica < 25) $kakoy_udar = 2;
-		if(25 <= $raznica) $kakoy_udar = 3;
-		$kubik = rand(-6, 6);
-		$raznica = intval($uz['krit'] / $me['uvorot'] * 10);
-		if($raznica < 3) $raznica = 3;
-		$raznica += $kubik;
-		if($raznica <= 4) $s_kakoy_udar = 0;
-		if(4 < $raznica and $raznica < 16) $s_kakoy_udar = 1;
-		if(16 <= $raznica and $raznica < 25) $s_kakoy_udar = 2;
-		if(25 <= $raznica) $s_kakoy_udar = 3;
+// Загружаем полные статы для $me
+$q = $db->query("SELECT `intel`, `doping`, `doping_time`, `altar`, `altar_time`, `zdor`, `sila`, `lovka`, `inta`, `ref`, `vip`, `klan` FROM `users` WHERE `login` = '" . $db->real_escape_string($f['login']) . "' LIMIT 1;");
+$me_user = $q ? $q->fetch_assoc() : null;
+$me = prepareFighter($me, $me_user);
 
-		$_SESSION['pkstr'] = '<small>';
-		$_SESSION['pkstr'] .= 'П: '.intval(($me['krit'] / $uz['uvorot'] * 10 - 6) / 25 * 100).' - '.intval(($me['krit'] / $uz['uvorot'] * 10 + 6) / 25 * 100).' | ';
-		$_SESSION['pkstr'] .= 'У: '.intval(($uz['krit'] / $me['uvorot'] * 10 - 6) / 25 * 100).' - '.intval(($uz['krit'] / $me['uvorot'] * 10 + 6) / 25 * 100);
-		$_SESSION['pkstr'] .= '</small>';
+// Загружаем полные статы для $uz (если есть соперник)
+if (!empty($me['sopernik'])) {
+    $q = $db->query("SELECT * FROM `combat` WHERE `id` = " . (int)$me['sopernik'] . " LIMIT 1;");
+    $uz = $q ? $q->fetch_assoc() : null;
+    if ($uz) {
+        if (empty($uz['flag_bot'])) {
+            $q = $db->query("SELECT `intel`, `doping`, `doping_time`, `altar`, `altar_time`, `zdor`, `sila`, `lovka`, `inta`, `ref`, `vip`, `klan` FROM `users` WHERE `login` = '" . $db->real_escape_string($uz['login']) . "' LIMIT 1;");
+            $uz_user = $q ? $q->fetch_assoc() : null;
+            $uz = prepareFighter($uz, $uz_user);
+        } else {
+            $uz = prepareFighter($uz, null);
+        }
+    }
+}
 
-		if($kakoy_udar == 0)
-			{
-			$uron_zaudar = 0;
-			if($me['kuda_udar'] != $uz['kuda_blok'] or $uz['flag_bot'] == 1)
-				{
-				$udar_log = $uz['login'].' уходит от удара в '.$ud_str.'<br/>';
-				}
-			else
-				{
-				$udar_log = $me['login'].' бьет в  '.$ud_str.' '.$uz['login'].', но попадает в блок<br/>';
-				}
-			}
-		if($kakoy_udar == 1)
-			{
-			if($me['kuda_udar'] != $uz['kuda_blok'] or $uz['flag_bot'] == 1)
-				{
-				$uron_zaudar = intval($uron_zaudar - $uz['bron'] * 0.5);
-				if($uron_zaudar < 1) $uron_zaudar = 1;
-				$udar_log = $me['login'].' бьет в '.$ud_str.' и наносит '.$uz['login'].' урон '.$uron_zaudar.'<br/>';
-				}
-			else
-				{
-				$uron_zaudar = 0;
-				$udar_log = $me['login'].' бьет в '.$ud_str.' '.$uz['login'].', но попадает в блок<br/>';
-				}
-			}
-		if($kakoy_udar == 2)
-			{
-			if($me['kuda_udar'] != $uz['kuda_blok'] or $uz['flag_bot'] == 1)
-				{
-				$uron_zaudar = intval($uron_zaudar * 1.8 - $uz['bron'] * 0.33);
-				if($uron_zaudar < 1) $uron_zaudar = 1;
-				$udar_log = $me['login'].' бьет резким ударом в '.$ud_str.' и наносит '.$uz['login'].' урон <b>'.$uron_zaudar.'</b><br/>';
-				}
-			else
-				{
-				$uron_zaudar = 0;
-				$udar_log = $me['login'].' бьет резким ударом в '.$ud_str.' '.$uz['login'].', но попадает в блок<br/>';
-				}
-			}
-		if($kakoy_udar == 3)
-			{
-			if($me['kuda_udar'] != $uz['kuda_blok'] or $uz['flag_bot'] == 1)
-				{
-				$uron_zaudar = intval($uron_zaudar * 2.2 - $uz['bron'] * 0.33);
-				if($uron_zaudar < 1) $uron_zaudar = 1;
-				$udar_log = $me['login'].' бьет критическим ударом в '.$ud_str.' и наносит '.$uz['login'].' урон <b><span style="color:red">'.$uron_zaudar.'</span></b><br/>';
-				}
-			if($me['kuda_udar'] == $uz['kuda_blok'])
-				{
-				$uron_zaudar = 0;
-				$udar_log = $me['login'].' бьет критическим ударом в '.$ud_str.' '.$uz['login'].', но попадает в блок<br/>';
-				}
-			}
+// Считаем % для отображения (до удара)
+if ($uz) {
+    $p_hit = (int)(($me['krit'] / max(1, $uz['uvorot'])) * 40);
+    if ($p_hit > 95) $p_hit = 95;
+    if ($p_hit < 5) $p_hit = 5;
+    $u_hit = (int)(($uz['krit'] / max(1, $me['uvorot'])) * 40);
+    if ($u_hit > 95) $u_hit = 95;
+    if ($u_hit < 5) $u_hit = 5;
+    $u_dodge = 100 - $u_hit;
+    $pkstr_display = '<small>П: <b>' . $p_hit . '%</b> · У: <b>' . $u_dodge . '%</b></small>';
+}
 
-		if($s_kakoy_udar == 0)
-			{
-			$s_uron_zaudar = 0;
-			if($uz['kuda_udar'] != $me['kuda_blok'] or $uz['flag_bot'] == 1)
-				{
-				$s_udar_log = $me['login'].' уходит от удара в '.$ud_str2.'<br/>';
-				}
-			else
-				{
-				$s_udar_log = $uz['login'].' бьет в  '.$ud_str2.' '.$me['login'].', но попадает в блок<br/>';
-				}
-			}
-		if($s_kakoy_udar == 1)
-			{
-			if($uz['kuda_udar'] != $me['kuda_blok'] or $uz['flag_bot'] == 1)
-				{
-				$s_uron_zaudar = intval($s_uron_zaudar - $me['bron'] * 0.5);
-				if($s_uron_zaudar < 1) $s_uron_zaudar = 1;
-				$s_udar_log = $uz['login'].' бьет в '.$ud_str2.' и наносит '.$me['login'].' урон '.$s_uron_zaudar.'<br/>';
-				}
-			else
-				{
-				$s_uron_zaudar = 0;
-				$s_udar_log = $uz['login'].' бьет в '.$ud_str2.' '.$me['login'].', но попадает в блок<br/>';
-				}
-			}
-		if($s_kakoy_udar == 2)
-			{
-			if($uz['kuda_udar'] != $me['kuda_blok'] or $uz['flag_bot'] == 1)
-				{
-				$s_uron_zaudar = intval($s_uron_zaudar * 1.8 - $me['bron'] * 0.33);
-				if($s_uron_zaudar < 1) $s_uron_zaudar = 1;
-				$s_udar_log = $uz['login'].' бьет резким ударом в '.$ud_str2.' и наносит '.$me['login'].' урон <b>'.$s_uron_zaudar.'</b><br/>';
-				}
-			if($uz['kuda_udar'] == $me['kuda_blok'] or $uz['flag_bot'] == 1)
-				{
-				$s_uron_zaudar = 0;
-				$s_udar_log = $uz['login'].' бьет резким ударом в '.$ud_str2.' '.$me['login'].', но попадает в блок<br/>';
-				}
-			}
-		if($s_kakoy_udar == 3)
-			{
-			if($uz['kuda_udar'] != $me['kuda_blok'] or $uz['flag_bot'] == 1)
-				{
-				$s_uron_zaudar = intval($s_uron_zaudar * 2.2- $me['bron'] * 0.33);
-				if($s_uron_zaudar < 1) $s_uron_zaudar = 1;
-				$s_udar_log = $uz['login'].' бьет критическим ударом в '.$ud_str2.' и наносит '.$me['login'].' урон <b><span style="color:red">'.$s_uron_zaudar.'</span></b><br/>';
-				}
-			else
-				{
-				if(mt_rand(1,100) <= 75)
-				$s_uron_zaudar = 0;
-				$s_udar_log = $uz['login'].' бьет критическим ударом в '.$ud_str2.' '.$me['login'].', но попадает в блок<br/>';
-				}
-			}
+// Если запрос удара есть — записываем
+if (!empty($_REQUEST['ud']) && !empty($_REQUEST['bl']) && (empty($me['kuda_udar']) || empty($me['kuda_blok']))) {
+    $me['kuda_udar'] = (int)$_REQUEST['ud'];
+    $me['kuda_blok'] = (int)$_REQUEST['bl'];
+    $db->query("UPDATE `combat` SET `kuda_udar` = " . (int)$me['kuda_udar'] . ", `kuda_blok` = " . (int)$me['kuda_blok'] . " WHERE `id` = " . (int)$me['id'] . " LIMIT 1;");
+}
 
-		$boi['round'] += 1;
-		require_once('inc/art.php');
-		$me['hpnow'] -= $s_uron_zaudar;
-		$uz['hpnow'] -= $uron_zaudar;
-		$me['uron_boi'] += $uron_zaudar;
-		$uz['uron_boi'] += $s_uron_zaudar;
-		$me['kuda_udar'] = 0;
-		$me['kuda_blok'] = 0;
-		$me['time_udar'] = $curtime;
-		$q = $db->query("UPDATE `battle` SET round='{$boi['round']}' WHERE id='{$bid}' LIMIT 1;");
-		$q = $db->query("update `combat` set uron_boi='{$me['uron_boi']}', hpnow='{$me['hpnow']}',time_udar='{$t}',kuda_udar=0,kuda_blok=0,boi_round=boi_round+1 where id='{$me['id']}' limit 1;");
-		$q = $db->query("update `combat` set uron_boi='{$uz['uron_boi']}', hpnow='{$uz['hpnow']}',time_udar='{$t}',kuda_udar=0,kuda_blok=0,boi_round=boi_round+1 where id='{$uz['id']}' limit 1;");
-		if($me['flag_bot'] == 0) $q = $db->query("update `users` set hpnow='{$me['hpnow']}' where login='{$me['login']}' limit 1;");
-		if($uz['flag_bot'] == 0) $q = $db->query("update `users` set hpnow='{$uz['hpnow']}' where login='{$uz['login']}' limit 1;");
-		$points = 0;
-		$kill_log = '';
-		if($me['hpnow'] <= 0 and $uz['hpnow'] > 0)
-			{
-			$moneyfor = mt_rand($me['lvl'] - 1, $me['lvl'] * 2 + 1);
-			if($moneyfor < 1) $moneyfor = 1;
-			if($moneyfor > $uz['lvl'] * 2) $moneyfor = $uz['lvl'] * 2;
-			$nalog = ceil($moneyfor * 0.1);
-			if($nalog < 1) $nalog = 1;
-			if($uz['vip'] > $_SERVER['REQUEST_TIME']) $moneyfor = ceil(2 * $moneyfor);
-			if($prazdn == 1) $moneyfor *= 2;
-			if(!empty($uz['ref'])) $q = $db->query("update `users` set money=money+".ceil($moneyfor * 0.05)." where id='{$uz['ref']}' limit 1;");
-			if(!empty($uz['klan'])) klan_points($uz['klan'],2);
-			if(!empty($me['klan'])) klan_points($me['klan'],-1);
-			if($uz['flag_bot'] == 0)
-				{
-				$kill_log = '<span style="color:'.$notice.'">'.$me['login'].' погибает. '.$uz['login'].' получает '.$moneyfor.' монет</span><br/>'.$kill_log;
-				if(!empty($uz['klan']) and !empty($me['klan']) and $me['klan'] != $uz['klan'] and $uz['lvl'] - $me['lvl'] < 2 and $boi['krov'] == 3)
-					{
-					$points = mt_rand(intval($me['lvl'] / 2), $me['lvl'] + 2);
-					if($points < 1) $points = 1;
-					$kill_log = '<span style="color:yellow;">'.$uz['login'].' получает '.$points.' очков чести</span><br/>'.$kill_log;
-					}
-				$q = $db->query("update `users` set money=money+'{$moneyfor}',nalog=nalog+'{$nalog}',chest=chest+'{$points}' where login='{$uz['login']}' limit 1;");
-				}
-			else
-				{
-				$kill_log = '<span style="color:'.$notice.'">'.$me['login'].' погибает</span><br/>'.$kill_log;
-				}
-			$q = $db->query("update `combat` set sopernik=0 where id='{$uz['id']}' or id='{$me['id']}' limit 2;");
-			}
-		$points = 0;
-		$nalog = 0;
-		if($uz['hpnow'] <= 0 and $me['hpnow'] > 0)
-			{
-			$moneyfor = mt_rand($uz['lvl'] - 1, $uz['lvl'] * 2 + 1);
-			if($moneyfor < 1) $moneyfor = 1;
-			if($moneyfor > $me['lvl'] * 2) $moneyfor = $me['lvl'] * 2;
-			$nalog = ceil($moneyfor * 0.1);
-			if($nalog < 1) $nalog = 1;
-			if($me['vip'] > $_SERVER['REQUEST_TIME']) $moneyfor = ceil(2 * $moneyfor);
-			if($prazdn == 1) $moneyfor *= 2;
-			if(!empty($me['ref'])) $q = $db->query("update `users` set money=money+".ceil($moneyfor * 0.05)." where id='{$me['ref']}' limit 1;");
-			if(!empty($me['klan'])) klan_points($me['klan'],2);
-			if(!empty($uz['klan'])) klan_points($uz['klan'],-1);
-			$kill_log = '<span style="color:'.$notice.'">'.$uz['login'].' погибает. '.$me['login'].' получает '.$moneyfor.' монет</span><br/>'.$kill_log;
-			if(!empty($uz['klan']) and !empty($me['klan']) and $me['klan'] != $uz['klan'] and $me['lvl'] - $uz['lvl'] < 2 and $boi['krov'] == 3)
-				{
-				$points = mt_rand(intval($uz['lvl'] / 2), $uz['lvl'] + 2);
-				if($points < 1) $points = 1;
-				$kill_log = '<span style="color:yellow;">'.$me['login'].' получает '.$points.' очков чести</span><br/>'.$kill_log;
-				}
-			$q = $db->query("update `users` set money=money+'{$moneyfor}',nalog=nalog+'{$nalog}',chest=chest+'{$points}' where login='{$me['login']}' limit 1;");
-			require_once('inc/drop.php');
-			$q = $db->query("update `combat` set sopernik=0 where id='{$uz['id']}' or id='{$me['id']}' limit 2;");
-			}
-		if($uz['hpnow'] <= 0 and $me['hpnow'] <= 0)
-			{
-			if(!empty($uz['klan'])) klan_points($uz['klan'],1);
-			if(!empty($me['klan'])) klan_points($me['klan'],1);
-			if($uz['login'] == 'Тролль' or $uz['login'] == 'Дракон') require_once('inc/drop.php');
-			$kill_log = '<span style="color:'.$notice.'">'.$uz['login'].' погибает. '.$me['login'].' погибает.</span><br/>'.$kill_log;
-			}
-		$hp_string = '<span style="color:'.$male.'">'.$curdate.' ('.$boi['round'].'): <b>'.$me['login'].'</b> ['.$me['lvl'].'] ('.$me['hpnow'].'/'.$me['hpmax'].')';
-		if($art_uron > 0) $hp_string .= ', арт: '.$art_uron;
-		if($art_hp > 0) $hp_string .= ', леч: '.$art_hp;
-		$hp_string .= ' VS <b>'.$uz['login'].'</b> ['.$uz['lvl'].'] ('.$uz['hpnow'].'/'.$uz['hpmax'].')';
-		if($s_art_uron > 0) $hp_string .= ', арт: '.$s_art_uron;
-		if($s_art_hp > 0) $hp_string .= ', леч: '.$s_art_hp;
-		$hp_string .= '</span><br/>';
-		$logboi_new = $hp_string.$kill_log.$s_udar_log.$udar_log.'<br/>';
-		$q = $db->query("insert into `battlelog` values (0,'{$bid}','{$t}','{$logboi_new}');");
-		}
-	else
-		{
-		if($uz['time_udar'] + $hodtime > $curtime and $uz['flag_bot'] == 0)
-			{
-			knopka('battle.php', 'Ожидание хода противника', 1);
-			$me['time_udar'] = $curtime;
-			$q = $db->query("update `combat` set time_udar='{$t}' where id={$me['id']} limit 1;");
-			}
-		}
-	}
+// Удар
+if (!empty($me['kuda_udar']) && $me['hpnow'] > 0 && !empty($me['sopernik'])) {
+    if (!$uz) {
+        $db->query("UPDATE `combat` SET `sopernik` = 0 WHERE `id` = " . (int)$me['id'] . " LIMIT 1;");
+        msg2('Противник не найден!');
+        knopka('battle.php', 'Обновить', 1);
+        fin();
+    }
+    if ($uz['hpnow'] <= 0) {
+        $db->query("UPDATE `combat` SET `sopernik` = 0 WHERE `id` = " . (int)$me['id'] . " LIMIT 1;");
+        msg2('Ваш противник уже убит!');
+        knopka('battle.php', 'Обновить', 1);
+        fin();
+    }
 
-switch($mod):
-case 'sumka':
-	if($me['hpnow'] > 0) require_once('inc/sumka.php');
-break;
-case 'magic':
-	if($me['hpnow'] > 0) require_once('inc/magic.php');
-break;
-case 'long':
-	require_once('inc/hpstring.php');
-	knopka('battle.php', 'Вернуться', 1);
-	$q = $db->query("SELECT log FROM `battlelog` WHERE boi_id='{$bid}' ORDER BY id DESC;");
-	while ($stlog = $q->fetch_assoc())
-		{
-		echo '<div class="board" style="text-align:left">'.$stlog['log'].'</div>';
-		}
-	fin();
-break;
-case 'sbrospar':
-	if($boi['sbrospar'] < $curtime - 20 and 0 < $me['hpnow'])
-		{
-		$q = $db->query("UPDATE `combat` SET sopernik=0 WHERE boi_id='{$bid}';");
-		$q = $db->query("UPDATE `battle` SET sbrospar='{$t}' WHERE id='{$bid}' LIMIT 1;");
-		msg2('Вы сбросили пары');
-		}
-break;
-endswitch;
+    if (!empty($uz['kuda_udar']) && !empty($uz['kuda_blok'])) {
+        $uron_zaudar   = mt_rand((int)$me['uron'], (int)($me['uron'] * 2));
+        $s_uron_zaudar = mt_rand((int)$uz['uron'], (int)($uz['uron'] * 2));
 
-//3 последние записи с лога боя, для примерного ориентирования игроков
-$q = $db->query("SELECT log FROM `battlelog` WHERE boi_id='{$bid}' ORDER BY id DESC LIMIT 3;");
-while ($stlog = $q->fetch_assoc())
-	{
-	$logboi .= $stlog['log'];
-	unset($stlog);
-	}
+        if ($me['krit'] < 1) $me['krit'] = 1;
+        if ($me['uvorot'] < 1) $me['uvorot'] = 1;
+        if ($uz['krit'] < 1) $uz['krit'] = 1;
+        if ($uz['uvorot'] < 1) $uz['uvorot'] = 1;
+        if (!isset($me['intel']) || $me['intel'] < 1) $me['intel'] = 1;
+        if (!isset($uz['intel']) || $uz['intel'] < 1) $uz['intel'] = 1;
 
-if(empty($logboi))
-	{
-	$logboi = $me['login'].' начинает бой в '.date('H:i:s', $boi['boistart']).'<br/>';
-	$q = $db->query("insert into `battlelog` values (0,'{$bid}','{$t}','{$logboi}');");
-	}
-//данные о бойцах, вперемешку с ботами и тд, добавим в $komanda1(2) и сосчитаем в $kom1(2)sum
-$q = $db->query("select * from `combat` where boi_id='{$bid}';");
-while($bz = $q->fetch_assoc())
-	{
-	if($bz['time_udar'] < $curtime - 1800 and $bz['hpnow'] > 0)
-		{
-		$bz['hpnow'] = $bz['mananow'] = 0;
-		if($bz['flag_bot'] == 0) $qq = $db->query("update `users` set hpnow=0,mananow=0 where login='{$bz['login']}' limit 1;");
-		$qq = $db->query("UPDATE `combat` SET hpnow=0,mananow=0 WHERE boi_id={$bid} AND id={$bz['id']} LIMIT 1;");
-		}
-	if($bz['time_udar'] < $curtime - $hodtime and $bz['hpnow'] > 0)
-		{
-		$qq = $db->query("UPDATE `combat` SET kuda_udar=2, kuda_blok=2 WHERE boi_id={$bid} AND id={$bz['id']} LIMIT 1;");
-		}
-	if($bz['flag_bot'] == 1 and $bz['hpnow'] > 0 and (empty($bz['kuda_udar']) or empty($bz['kuda_blok'])))
-		{
-		$bz['kuda_udar'] = rand(1, 3);
-		$bz['kuda_blok'] = rand(1, 3);
-		$qq = $db->query("UPDATE `combat` SET kuda_udar={$bz['kuda_udar']}, kuda_blok={$bz['kuda_blok']} WHERE boi_id={$bid} AND id={$bz['id']} LIMIT 1;");
-		}
-	if($bz['hpnow'] > 0)
-		{
-		if($bz['komanda'] == 1)
-			{
-			$kom1sum++;
-			if(empty($bz['sopernik'])) $kom1[] = $bz['id'];
-			if($bz['flag_bot'] == 0) $komanda1 .= '<a href="infa.php?mod=uzinfa&lgn='.$bz['login'].'"><span style="color:'.$notice.'">'.$bz['login'].'</span></a> ['.$bz['lvl'].'] ('.$bz['hpnow'].'/'.$bz['hpmax'].') урон: '.$bz['uron_boi'].'<br/>';	//отображение живых
-			else $komanda1 .= '<span style="color:'.$notice.'">'.$bz['login'].'</span> ['.$bz['lvl'].'] ('.$bz['hpnow'].'/'.$bz['hpmax'].') урон: '.$bz['uron_boi'].'<br/>';	//отображение живых
-			}
-		else
-			{
-			$kom2sum++;
-			if(empty($bz['sopernik'])) $kom2[] = $bz['id'];
-			if($bz['flag_bot'] == 0) $komanda2 .= '<a href="infa.php?mod=uzinfa&lgn='.$bz['login'].'"><span style="color:'.$male.'">'.$bz['login'].'</span></a> ['.$bz['lvl'].'] ('.$bz['hpnow'].'/'.$bz['hpmax'].') урон: '.$bz['uron_boi'].'<br/>';	//отображение живых
-			else $komanda2 .= '<span style="color:'.$male.'">'.$bz['login'].'</span> ['.$bz['lvl'].'] ('.$bz['hpnow'].'/'.$bz['hpmax'].') урон: '.$bz['uron_boi'].'<br/>';
-			}
-		}
-	}
+        $me['sopr'] = (int)($me['bron'] * 0.1 + $me['intel']);
+        if ($me['sopr'] > 99) $me['sopr'] = 99;
+        $uz['sopr'] = (int)($uz['bron'] * 0.1 + $uz['intel']);
+        if ($uz['sopr'] > 99) $uz['sopr'] = 99;
 
-while(sizeof($kom1) > 0 and sizeof($kom2) > 0)
-	{
-	shuffle($kom1);
-	shuffle($kom2);
-	$rand1 = mt_rand(0, sizeof($kom1) - 1);
-	$rand2 = mt_rand(0, sizeof($kom2) - 1);
-	$boeckm1 = $kom1[$rand1];
-	$boeckm2 = $kom2[$rand2];
-	unset($kom1[$rand1]);
-	unset($kom2[$rand2]);
-	$kom1 = array_values($kom1);
-	$kom2 = array_values($kom2);
-	$q = $db->query("UPDATE `combat` SET sopernik='{$boeckm1}' WHERE id='{$boeckm2}' LIMIT 1;");
-	$q = $db->query("UPDATE `combat` SET sopernik='{$boeckm2}' WHERE id='{$boeckm1}' LIMIT 1;");
-	if($boeckm1 == $me['id']) $me['sopernik'] = $boeckm2;
-	if($boeckm2 == $me['id']) $me['sopernik'] = $boeckm1;
-	}
+        if (empty($me['kuda_udar'])) $me['kuda_udar'] = 1;
+        if (empty($me['kuda_blok'])) $me['kuda_blok'] = 1;
+        if (empty($uz['kuda_udar'])) $uz['kuda_udar'] = 1;
+        if (empty($uz['kuda_blok'])) $uz['kuda_blok'] = 1;
+        if ($me['kuda_udar'] < 1 || $me['kuda_udar'] > 3) $me['kuda_udar'] = 1;
+        if ($me['kuda_blok'] < 1 || $me['kuda_blok'] > 3) $me['kuda_blok'] = 1;
+        if ($uz['flag_bot'] == 1) {
+            if ($me['kuda_udar'] == 1 && $uz['kuda_blok'] == 1) $uz['kuda_blok'] = 2;
+            if ($me['kuda_udar'] == 2 && $uz['kuda_blok'] == 2) $uz['kuda_blok'] = 3;
+            if ($me['kuda_udar'] == 3 && $uz['kuda_blok'] == 3) $uz['kuda_blok'] = 1;
+        }
+        $ud_str  = ['голову','грудь','ноги'][$me['kuda_udar'] - 1];
+        $ud_str2 = ['голову','грудь','ноги'][$uz['kuda_udar'] - 1];
 
-//финиш
-if(empty($komanda1) or empty($komanda2))
-	{
-	//select sum(lvl) where boi_id={$bid} and komanda=1
-	//закончим бой
-	$winkom = 0;	//какая команда победила, для раздачи опыта.
-	$koef = 0.33;	//базовый коэфф опыта.
-	if($boi['krov'] == 2) $koef *= 3;
-	if($boi['krov'] == 3 or $boi['krov'] == 4 or $boi['krov'] == 5) $koef = 0.01;
-	if($prazdn == 1) $koef *= 2;
-	$q = $db->query("select sum(lvl) from `combat` where boi_id={$bid} and komanda=1;");
-	$lvl1 = $q->fetch_assoc();
-	$lvl1 = $lvl1['sum(lvl)'];
-	$q = $db->query("select sum(lvl) from `combat` where boi_id={$bid} and komanda=2;");
-	$lvl2 = $q->fetch_assoc();
-	$lvl2 = $lvl2['sum(lvl)'];
-	if($lvl1 < 1) $lvl1 = 1;
-	if($lvl2 < 1) $lvl2 = 1;
-	//победа за первой командой
-	if($kom1sum > 0 and $kom2sum <= 0)
-		{
-		$winkom = 1;
-		$koef = round($lvl2 / $lvl1 * $koef, 2);
-		$q = $db->query("update `combat`,`users` set `users`.`win`=`users`.`win`+1 where (`combat`.`flag_bot`=0 and `combat`.`komanda`=1 and `combat`.`boi_id`='{$bid}' and `users`.`login`=`combat`.`login`);");
-		$q = $db->query("update `combat`,`users` set `users`.`lost`=`users`.`lost`+1,`users`.`doping`=0,`users`.`doping_time`=0,`users`.`rabota`=0,`users`.`loc`=1,`users`.`kvest_now`='',`users`.`kvest_step`=0 where (`combat`.`flag_bot`=0 and `combat`.`komanda`=2 and `combat`.`boi_id`='{$bid}' and `users`.`login`=`combat`.`login`);");
-		/*if($boi['krov'] == 1 or $boi['krov'] == 2)
-			{
-			$q = $db->query("update `combat`,`users` set `users`.`hpnow`=0-`users`.`hpmax`*20 where (`combat`.`flag_bot`=0 and `combat`.`komanda`=2 and `combat`.`boi_id`='{$bid}' and `users`.`login`=`combat`.`login` and `users`.`vip`<'{$t}');");
-			$final_log = '<span style="color:'.$female.'">Проигравшие развоплощаются</span><br/>'.$final_log;
-			}
-		if($boi['krov'] == 3)
-			{
-			$q = $db->query("update `combat`,`users` set `users`.`hpnow`=0-`users`.`hpmax`*25 where (`combat`.`flag_bot`=0 and `combat`.`komanda`=2 and `combat`.`boi_id`='{$bid}' and `users`.`login`=`combat`.`login`);");
-			$final_log = '<span style="color:'.$female.'">Проигравшие развоплощаются</span><br/>'.$final_log;
-			}*/
-		}
+        $kubik = mt_rand(-6, 6);
+        $raznica = (int)($me['krit'] / $uz['uvorot'] * 10);
+        if ($raznica < 3) $raznica = 3;
+        $raznica += $kubik;
+        if ($raznica <= 4) $kakoy_udar = 0;
+        elseif ($raznica < 16) $kakoy_udar = 1;
+        elseif ($raznica < 25) $kakoy_udar = 2;
+        else $kakoy_udar = 3;
 
-	//победа за второй командой
-	if($kom1sum <= 0 and $kom2sum > 0)
-		{
-		$winkom = 2;
-		$koef = round($lvl1 / $lvl2 * $koef, 2);
-		$q = $db->query("update `combat`,`users` set `users`.`win`=`users`.`win`+1 where (`combat`.`flag_bot`=0 and `combat`.`komanda`=2 and `combat`.`boi_id`='{$bid}' and `users`.`login`=`combat`.`login`);");
-		$q = $db->query("update `combat`,`users` set `users`.`lost`=`users`.`lost`+1,`users`.`doping`=0,`users`.`doping_time`=0,`users`.`rabota`=0,`users`.`loc`=1,`users`.`kvest_now`='',`users`.`kvest_step`=0 where (`combat`.`flag_bot`=0 and `combat`.`komanda`=1 and `combat`.`boi_id`='{$bid}' and `users`.`login`=`combat`.`login`);");
-		/*if($boi['krov'] == 1 or $boi['krov'] == 2) // ПвЕ
-			{
-			$q = $db->query("update `combat`,`users` set `users`.`hpnow`=0-`users`.`hpmax`*20 where (`combat`.`flag_bot`=0 and `combat`.`komanda`=1 and `combat`.`boi_id`='{$bid}' and `users`.`login`=`combat`.`login` and `users`.`vip`<'{$t}');");
-			$final_log = '<span style="color:'.$male.'">Проигравшие развоплощаются</span><br/>'.$final_log;
-			}
-		if($boi['krov'] == 3)
-			{
-			$q = $db->query("update `combat`,`users` set `users`.`hpnow`=0-`users`.`hpmax`*25 where (`combat`.`flag_bot`=0 and `combat`.`komanda`=1 and `combat`.`boi_id`='{$bid}' and `users`.`login`=`combat`.`login`);");
-			$final_log = '<span style="color:'.$male.'">Проигравшие развоплощаются</span><br/>'.$final_log;
-			}*/
-		}
+        $kubik = mt_rand(-6, 6);
+        $raznica = (int)($uz['krit'] / $me['uvorot'] * 10);
+        if ($raznica < 3) $raznica = 3;
+        $raznica += $kubik;
+        if ($raznica <= 4) $s_kakoy_udar = 0;
+        elseif ($raznica < 16) $s_kakoy_udar = 1;
+        elseif ($raznica < 25) $s_kakoy_udar = 2;
+        else $s_kakoy_udar = 3;
 
-	//ничья
-	elseif($kom1sum <= 0 and $kom2sum <= 0)
-		{
-		$final_log = '<span style="color:'.$male.'">НИЧЬЯ</span><br/>'.$final_log;
-		}
-	if($prazdn == 1) $final_log = '<span style="color:yellow">Праздничное увеличение опыт х2, монеты х2</span><br/>'.$final_log;
-	//финальный лог первой команды
-	$q = $db->query("select * from `combat` where boi_id={$bid} and komanda=1 order by uron_boi desc;");
-	while($kom1 = $q->fetch_assoc())
-		{
-		$str = $kom1['login'].' ('.$kom1['hpnow'].'/'.$kom1['hpmax'].') (урон: '.$kom1['uron_boi'];
-		if($winkom == 1)
-			{
-			if(empty($kom1['flag_bot']))
-				{
-				$qq = $db->query("select id,vip,ref from `users` where login='{$kom1['login']}' limit 1;");
-				$slog = $qq->fetch_assoc();
-				$exp1 = intval($koef * $kom1['uron_boi']);
-				if($slog['vip'] > $_SERVER['REQUEST_TIME']) $exp1 = intval(2 * $exp1);
-				if(!empty($slog['ref'])) addexp($slog['ref'], ceil($exp1 * 0.05));
-				addexp($slog['id'], $exp1);
-				}
-			else
-				{
-				$exp1 = intval($koef * $kom1['uron_boi']);
-				}
-			$str .= ', опыт: '.$exp1;
-			}
-		$str .= ')<br/>';
-		$final_log = $str.$final_log;
-		}
-	$final_log = '<small>VS.</small><br/>'.$final_log.'<br/>';
-	unset($kom1);
-	//финальный лог второй команды
-	$q = $db->query("select * from `combat` where boi_id={$bid} and komanda=2 order by uron_boi desc;");
-	while($kom2 = $q->fetch_assoc())
-		{
-		$str = $kom2['login'].' ('.$kom2['hpnow'].'/'.$kom2['hpmax'].') (урон: '.$kom2['uron_boi'];
-		if($winkom == 2)
-			{
-			if(empty($kom2['flag_bot']))
-				{
-				$qq = $db->query("select id,vip,ref from `users` where login='{$kom2['login']}' limit 1;");
-				$slog = $qq->fetch_assoc();
-				$exp2 = intval($koef * $kom2['uron_boi']);
-				if($slog['vip'] > $_SERVER['REQUEST_TIME']) $exp2 = intval(2 * $exp2);
-				if(!empty($slog['ref'])) addexp($slog['ref'], ceil($exp2 * 0.05));
-				addexp($slog['id'], $exp2);
-				}
-			else
-				{
-				$exp2 = intval($koef * $kom2['uron_boi']);
-				}
-			$str .= ', опыт: '.$exp2;
-			}
-		$str .= ')<br/>';
-		$final_log = $str.$final_log;
-		}
-	unset($kom2);
-	if(!empty($winkom)) $final_log = 'Коэффициент опыта: '.$koef.'<br/>'.$final_log;
-	//лог в базу
-	$q = $db->query("insert into `battlelog` values (0,'{$bid}','{$t}','{$final_log}');");
-	//чистка комбат
-	$q = $db->query("delete from `combat` where boi_id=0 OR boi_id={$bid};");
-	$q = $db->query("UPDATE `battle` SET flag_boi=0 WHERE id={$bid} LIMIT 1;");
-	//вывод из боя игроков
-	$q = $db->query("update `users` set status=0,lastdate='{$t}',hptime='{$t}',manatime='{$t}' where boi_id={$bid};");
-	require_once('inc/hpstring.php');
-	knopka('loc.php', 'Бой завершен', 1);
-	if(!empty($_SESSION['pkstr']))
-		{
-		msg2($_SESSION['pkstr']);
-		unset($_SESSION['pkstr']);
-		}
-	$logboi = '';
-	$q = $db->query("SELECT * FROM `battlelog` WHERE boi_id={$bid} ORDER BY id DESC LIMIT 3;");
-	echo '<div class="board" style="text-align:left">';
-	while ($stlog = $q->fetch_assoc()) echo $stlog['log'];
-	echo '</div>';
-	fin();
-	}
-//конец финиша
+        // Удар игрока
+        if ($kakoy_udar == 0) {
+            $uron_zaudar = 0;
+            if ($me['kuda_udar'] != $uz['kuda_blok'] || $uz['flag_bot'] == 1) $udar_log = $uz['login'] . ' уходит от удара в ' . $ud_str . '<br/>';
+            else $udar_log = $me['login'] . ' бьет в ' . $ud_str . ' ' . $uz['login'] . ', но попадает в блок<br/>';
+        } elseif ($kakoy_udar == 1) {
+            if ($me['kuda_udar'] != $uz['kuda_blok'] || $uz['flag_bot'] == 1) {
+                $uron_zaudar = (int)($uron_zaudar - $uz['bron'] * 0.5);
+                if ($uron_zaudar < 1) $uron_zaudar = 1;
+                $udar_log = $me['login'] . ' бьет в ' . $ud_str . ' и наносит ' . $uz['login'] . ' урон ' . $uron_zaudar . '<br/>';
+            } else {
+                $uron_zaudar = 0;
+                $udar_log = $me['login'] . ' бьет в ' . $ud_str . ' ' . $uz['login'] . ', но попадает в блок<br/>';
+            }
+        } elseif ($kakoy_udar == 2) {
+            if ($me['kuda_udar'] != $uz['kuda_blok'] || $uz['flag_bot'] == 1) {
+                $uron_zaudar = (int)($uron_zaudar * 1.8 - $uz['bron'] * 0.33);
+                if ($uron_zaudar < 1) $uron_zaudar = 1;
+                $udar_log = $me['login'] . ' бьет резким ударом в ' . $ud_str . ' и наносит ' . $uz['login'] . ' урон <b>' . $uron_zaudar . '</b><br/>';
+            } else {
+                $uron_zaudar = 0;
+                $udar_log = $me['login'] . ' бьет резким ударом в ' . $ud_str . ' ' . $uz['login'] . ', но попадает в блок<br/>';
+            }
+        } else {
+            if ($me['kuda_udar'] != $uz['kuda_blok'] || $uz['flag_bot'] == 1) {
+                $uron_zaudar = (int)($uron_zaudar * 2.2 - $uz['bron'] * 0.33);
+                if ($uron_zaudar < 1) $uron_zaudar = 1;
+                $udar_log = $me['login'] . ' бьет критическим ударом в ' . $ud_str . ' и наносит ' . $uz['login'] . ' урон <b><span style="color:red">' . $uron_zaudar . '</span></b><br/>';
+            } else {
+                $uron_zaudar = 0;
+                $udar_log = $me['login'] . ' бьет критическим ударом в ' . $ud_str . ' ' . $uz['login'] . ', но попадает в блок<br/>';
+            }
+        }
 
-require_once('inc/hpstring.php');
+        // Удар противника
+        if ($s_kakoy_udar == 0) {
+            $s_uron_zaudar = 0;
+            if ($uz['kuda_udar'] != $me['kuda_blok'] || $uz['flag_bot'] == 1) $s_udar_log = $me['login'] . ' уходит от удара в ' . $ud_str2 . '<br/>';
+            else $s_udar_log = $uz['login'] . ' бьет в ' . $ud_str2 . ' ' . $me['login'] . ', но попадает в блок<br/>';
+        } elseif ($s_kakoy_udar == 1) {
+            if ($uz['kuda_udar'] != $me['kuda_blok'] || $uz['flag_bot'] == 1) {
+                $s_uron_zaudar = (int)($s_uron_zaudar - $me['bron'] * 0.5);
+                if ($s_uron_zaudar < 1) $s_uron_zaudar = 1;
+                $s_udar_log = $uz['login'] . ' бьет в ' . $ud_str2 . ' и наносит ' . $me['login'] . ' урон ' . $s_uron_zaudar . '<br/>';
+            } else {
+                $s_uron_zaudar = 0;
+                $s_udar_log = $uz['login'] . ' бьет в ' . $ud_str2 . ' ' . $me['login'] . ', но попадает в блок<br/>';
+            }
+        } elseif ($s_kakoy_udar == 2) {
+            if ($uz['kuda_udar'] != $me['kuda_blok'] || $uz['flag_bot'] == 1) {
+                $s_uron_zaudar = (int)($s_uron_zaudar * 1.8 - $me['bron'] * 0.33);
+                if ($s_uron_zaudar < 1) $s_uron_zaudar = 1;
+                $s_udar_log = $uz['login'] . ' бьет резким ударом в ' . $ud_str2 . ' и наносит ' . $me['login'] . ' урон <b>' . $s_uron_zaudar . '</b><br/>';
+            } else {
+                $s_uron_zaudar = 0;
+                $s_udar_log = $uz['login'] . ' бьет резким ударом в ' . $ud_str2 . ' ' . $me['login'] . ', но попадает в блок<br/>';
+            }
+        } else {
+            if ($uz['kuda_udar'] != $me['kuda_blok'] || $uz['flag_bot'] == 1) {
+                $s_uron_zaudar = (int)($s_uron_zaudar * 2.2 - $me['bron'] * 0.33);
+                if ($s_uron_zaudar < 1) $s_uron_zaudar = 1;
+                $s_udar_log = $uz['login'] . ' бьет критическим ударом в ' . $ud_str2 . ' и наносит ' . $me['login'] . ' урон <b><span style="color:red">' . $s_uron_zaudar . '</span></b><br/>';
+            } else {
+                if (mt_rand(1, 100) <= 75) $s_uron_zaudar = 0;
+                $s_udar_log = $uz['login'] . ' бьет критическим ударом в ' . $ud_str2 . ' ' . $me['login'] . ', но попадает в блок<br/>';
+            }
+        }
 
-if(($kom1sum > 1 and $me['komanda'] == 2) or ($kom2sum > 1 and $me['komanda'] == 1) or empty($me['sopernik']) or $me['hpnow'] < 0)
-	{
-	echo '<div class="board" style="text-align:left;">'.$komanda1.'VS<br/>'.$komanda2.'</div>';
-	}
-$q = $db->query("select `invent`.`id` from `invent`,`item` where `invent`.`login`='{$me['login']}' and `invent`.`flag_equip`=1 and `item`.`equip`='sumka' and `invent`.`ido`=`item`.`id`;");
-if($q->num_rows > 0) $sum = 1; else $sum = 0;
-//кнопка ударить
-if(!empty($me['sopernik']))
-	{
-	if($me['komanda'] == 1)
-		{
-		$col1 = $notice;
-		$col2 = $male;
-		}
-	if($me['komanda'] == 2)
-		{
-		$col1 = $male;
-		$col2 = $notice;
-		}
-	$q = $db->query("select * from `combat` where id='{$me['sopernik']}' limit 1;");
-	$uz = $q->fetch_assoc();
-	if(empty($bz['login2']))
-		{
-		$q = $db->query("update `battle` set login2='{$uz['login']}' where id={$bid} limit 1;");
-		$bz['login'] = $uz['login'];
-		}
-	echo '<div class="board" style="text-align:left;">';
-	echo '<span style="color:'.$col1.'"><b>'.$me['login'].'</b></span> ['.$me['lvl'].'] ('.$me['hpnow'].'/'.$me['hpmax'].') урон: '.$me['uron_boi'].'<br/><small>VS.</small><br/>';
-	if($uz['flag_bot'] == 1)
-		{
-		echo '<span style="color:'.$col2.'"><b>'.$uz['login'].'</b></span> ['.$uz['lvl'].'] ('.$uz['hpnow'].'/'.$uz['hpmax'].') урон: '.$uz['uron_boi'];
-		}
-	else
-		{
-		$tajm = $curtime - $uz['time_udar'];
-		$tajm = $hodtime - $tajm;
-		if($tajm < 0) $tajm = 0;
-		echo '<span style="color:'.$col2.'"><b><a href="infa.php?mod=uzinfa&lgn='.$uz['login'].'">'.$uz['login'].'</a></b></span> ['.$uz['lvl'].'] ('.$uz['hpnow'].'/'.$uz['hpmax'].') урон: '.$uz['uron_boi'].', тайм: '.$tajm;
-		unset($tajm);
-		}
-	echo '</div>';
-	if((empty($me['kuda_udar']) or empty($me['kuda_blok'])) and 0 < $me['hpnow'])
-		{
-		echo '<div class="board" style="text-align:left;">';
-		if($uz['flag_bot'] == 1)
-			{
-			echo '<a class="navig" href="battle.php?ud='.mt_rand(1,3).'&bl='.mt_rand(1,3).'&r='.mt_rand(1111,9999).'"><b>Ударить</b></a>';
-			}
-		else
-			{
-			echo '<form action="battle.php?r='.mt_rand(1111,9999).'" method="POST">';
-			$rndblok = mt_rand(1,3);
-			$catbl = array(1=>'',2=>'',3=>'');
-			$catbl[$rndblok] = 'selected';
-			echo '<select name="bl">';
-			echo '<option value="2" '.$catbl[2].'>блок груди</option>';
-			echo '<option value="1" '.$catbl[1].'>блок головы</option>';
-			echo '<option value="3" '.$catbl[3].'>блок ног</option>';
-			echo '</select>';
-			$rndblok = mt_rand(1,3);
-			$catud = array(1=>'',2=>'',3=>'');
-			$catud[$rndblok] = 'selected';
-			echo '<select name="ud">';
-			echo '<option value="2" '.$catud[2].'>удар в грудь</option>';
-			echo '<option value="1" '.$catud[1].'>удар в голову</option>';
-			echo '<option value="3" '.$catud[3].'>удар по ногам</option>';
-			echo '</select>';
-			echo '<input type="submit" value="Удар"></form>';
-			}
-		echo '</div>';
-		}
-	}
-$tajm = $curtime - $me['time_udar'];
+        $boi['round'] = (int)$boi['round'] + 1;
+        require __DIR__ . '/inc/art.php';
+
+        $me['hpnow'] -= $s_uron_zaudar;
+        $uz['hpnow'] -= $uron_zaudar;
+        $me['uron_boi'] = (int)$me['uron_boi'] + $uron_zaudar;
+        $uz['uron_boi'] = (int)$uz['uron_boi'] + $s_uron_zaudar;
+        $me['kuda_udar'] = 0;
+        $me['kuda_blok'] = 0;
+        $me['time_udar'] = $curtime;
+
+        $db->query("UPDATE `battle` SET `round` = " . (int)$boi['round'] . " WHERE `id` = {$bid} LIMIT 1;");
+        $db->query("UPDATE `combat` SET `uron_boi` = " . (int)$me['uron_boi'] . ", `hpnow` = " . (int)$me['hpnow'] . ", `time_udar` = '{$t}', `kuda_udar` = 0, `kuda_blok` = 0, `boi_round` = `boi_round` + 1 WHERE `id` = " . (int)$me['id'] . " LIMIT 1;");
+        $db->query("UPDATE `combat` SET `uron_boi` = " . (int)$uz['uron_boi'] . ", `hpnow` = " . (int)$uz['hpnow'] . ", `time_udar` = '{$t}', `kuda_udar` = 0, `kuda_blok` = 0, `boi_round` = `boi_round` + 1 WHERE `id` = " . (int)$uz['id'] . " LIMIT 1;");
+        if (empty($me['flag_bot'])) $db->query("UPDATE `users` SET `hpnow` = " . (int)$me['hpnow'] . " WHERE `login` = '" . $db->real_escape_string($me['login']) . "' LIMIT 1;");
+        if (empty($uz['flag_bot'])) $db->query("UPDATE `users` SET `hpnow` = " . (int)$uz['hpnow'] . " WHERE `login` = '" . $db->real_escape_string($uz['login']) . "' LIMIT 1;");
+
+        $points = 0;
+        $kill_log = '';
+
+        if ($me['hpnow'] <= 0 && $uz['hpnow'] > 0) {
+            $moneyfor = mt_rand((int)$me['lvl'] - 1, (int)$me['lvl'] * 2 + 1);
+            if ($moneyfor < 1) $moneyfor = 1;
+            if ($moneyfor > $uz['lvl'] * 2) $moneyfor = $uz['lvl'] * 2;
+            $nalog = (int)ceil($moneyfor * 0.1);
+            if ($nalog < 1) $nalog = 1;
+            if ($uz['vip'] > $curtime) $moneyfor = (int)ceil(2 * $moneyfor);
+            if ($prazdn == 1) $moneyfor *= 2;
+            if (!empty($uz['ref'])) $db->query("UPDATE `users` SET `money` = `money` + " . (int)ceil($moneyfor * 0.05) . " WHERE `id` = " . (int)$uz['ref'] . " LIMIT 1;");
+            if (!empty($uz['klan'])) klan_points($uz['klan'], 2);
+            if (!empty($me['klan'])) klan_points($me['klan'], -1);
+            if ($uz['flag_bot'] == 0) {
+                $kill_log = '<span style="color:' . $notice . '">' . $me['login'] . ' погибает. ' . $uz['login'] . ' получает ' . $moneyfor . ' монет</span><br/>' . $kill_log;
+                if (!empty($uz['klan']) && !empty($me['klan']) && $me['klan'] != $uz['klan'] && $uz['lvl'] - $me['lvl'] < 2 && $boi['krov'] == 3) {
+                    $points = mt_rand((int)($me['lvl'] / 2), (int)$me['lvl'] + 2);
+                    if ($points < 1) $points = 1;
+                    $kill_log = '<span style="color:yellow;">' . $uz['login'] . ' получает ' . $points . ' очков чести</span><br/>' . $kill_log;
+                }
+                $db->query("UPDATE `users` SET `money` = `money` + '{$moneyfor}', `nalog` = `nalog` + '{$nalog}', `chest` = `chest` + '{$points}' WHERE `login` = '" . $db->real_escape_string($uz['login']) . "' LIMIT 1;");
+            } else {
+                $kill_log = '<span style="color:' . $notice . '">' . $me['login'] . ' погибает</span><br/>' . $kill_log;
+            }
+            $db->query("UPDATE `combat` SET `sopernik` = 0 WHERE `id` = " . (int)$uz['id'] . " OR `id` = " . (int)$me['id'] . " LIMIT 2;");
+        }
+
+        $points = 0;
+        $nalog = 0;
+        if ($uz['hpnow'] <= 0 && $me['hpnow'] > 0) {
+            $moneyfor = mt_rand((int)$uz['lvl'] - 1, (int)$uz['lvl'] * 2 + 1);
+            if ($moneyfor < 1) $moneyfor = 1;
+            if ($moneyfor > $me['lvl'] * 2) $moneyfor = $me['lvl'] * 2;
+            $nalog = (int)ceil($moneyfor * 0.1);
+            if ($nalog < 1) $nalog = 1;
+            if ($me['vip'] > $curtime) $moneyfor = (int)ceil(2 * $moneyfor);
+            if ($prazdn == 1) $moneyfor *= 2;
+            if (!empty($me['ref'])) $db->query("UPDATE `users` SET `money` = `money` + " . (int)ceil($moneyfor * 0.05) . " WHERE `id` = " . (int)$me['ref'] . " LIMIT 1;");
+            if (!empty($me['klan'])) klan_points($me['klan'], 2);
+            if (!empty($uz['klan'])) klan_points($uz['klan'], -1);
+            $kill_log = '<span style="color:' . $notice . '">' . $uz['login'] . ' погибает. ' . $me['login'] . ' получает ' . $moneyfor . ' монет</span><br/>' . $kill_log;
+            if (!empty($uz['klan']) && !empty($me['klan']) && $me['klan'] != $uz['klan'] && $me['lvl'] - $uz['lvl'] < 2 && $boi['krov'] == 3) {
+                $points = mt_rand((int)($uz['lvl'] / 2), (int)$uz['lvl'] + 2);
+                if ($points < 1) $points = 1;
+                $kill_log = '<span style="color:yellow;">' . $me['login'] . ' получает ' . $points . ' очков чести</span><br/>' . $kill_log;
+            }
+            $db->query("UPDATE `users` SET `money` = `money` + '{$moneyfor}', `nalog` = `nalog` + '{$nalog}', `chest` = `chest` + '{$points}' WHERE `login` = '" . $db->real_escape_string($me['login']) . "' LIMIT 1;");
+            require __DIR__ . '/inc/drop.php';
+            $db->query("UPDATE `combat` SET `sopernik` = 0 WHERE `id` = " . (int)$uz['id'] . " OR `id` = " . (int)$me['id'] . " LIMIT 2;");
+        }
+
+        if ($uz['hpnow'] <= 0 && $me['hpnow'] <= 0) {
+            if (!empty($uz['klan'])) klan_points($uz['klan'], 1);
+            if (!empty($me['klan'])) klan_points($me['klan'], 1);
+            if ($uz['login'] == 'Тролль' || $uz['login'] == 'Дракон') require __DIR__ . '/inc/drop.php';
+            $kill_log = '<span style="color:' . $notice . '">' . $uz['login'] . ' погибает. ' . $me['login'] . ' погибает.</span><br/>' . $kill_log;
+        }
+
+        $hp_string = '<span style="color:' . $male . '">' . $curdate . ' (' . $boi['round'] . '): <b>' . $me['login'] . '</b> [' . $me['lvl'] . '] (' . $me['hpnow'] . '/' . $me['hpmax'] . ')';
+        if (!empty($art_uron)) $hp_string .= ', арт: ' . $art_uron;
+        if (!empty($art_hp))   $hp_string .= ', леч: ' . $art_hp;
+        $hp_string .= ' VS <b>' . $uz['login'] . '</b> [' . $uz['lvl'] . '] (' . $uz['hpnow'] . '/' . $uz['hpmax'] . ')';
+        if (!empty($s_art_uron)) $hp_string .= ', арт: ' . $s_art_uron;
+        if (!empty($s_art_hp))   $hp_string .= ', леч: ' . $s_art_hp;
+        $hp_string .= '</span><br/>';
+
+        $logboi_new = $hp_string . $kill_log . $s_udar_log . $udar_log . '<br/>';
+        $db->query("INSERT INTO `battlelog` VALUES (0, '{$bid}', '{$t}', '" . $db->real_escape_string($logboi_new) . "');");
+    } else {
+        if ($uz['time_udar'] + $hodtime > $curtime && $uz['flag_bot'] == 0) {
+            knopka('battle.php', 'Ожидание хода противника', 1);
+            $db->query("UPDATE `combat` SET `time_udar` = '{$t}' WHERE `id` = " . (int)$me['id'] . " LIMIT 1;");
+        }
+    }
+}
+
+// mod
+switch ($mod) {
+    case 'sumka':
+        if ($me['hpnow'] > 0) require __DIR__ . '/inc/sumka.php';
+        break;
+    case 'magic':
+        if ($me['hpnow'] > 0) require __DIR__ . '/inc/magic.php';
+        break;
+    case 'long':
+        require_once __DIR__ . '/inc/hpstring.php';
+        knopka('battle.php', 'Вернуться', 1);
+        $q = $db->query("SELECT `log` FROM `battlelog` WHERE `boi_id` = '{$bid}' ORDER BY `id` DESC;");
+        if ($q) {
+            while ($stlog = $q->fetch_assoc()) {
+                echo '<div class="board" style="text-align:left">' . $stlog['log'] . '</div>';
+            }
+        }
+        fin();
+        break;
+    case 'sbrospar':
+        if ($boi['sbrospar'] < $curtime - 20 && $me['hpnow'] > 0) {
+            $db->query("UPDATE `combat` SET `sopernik` = 0 WHERE `boi_id` = '{$bid}';");
+            $db->query("UPDATE `battle` SET `sbrospar` = '{$t}' WHERE `id` = '{$bid}' LIMIT 1;");
+            msg2('Вы сбросили пары');
+        }
+        break;
+    case 'whowhere':
+        msg2('Кто в бою:');
+        $q = $db->query("SELECT `login`, `lvl`, `hpnow`, `hpmax`, `komanda`, `flag_bot`, `uron_boi` FROM `combat` WHERE `boi_id` = {$bid} ORDER BY `komanda`, `lvl` DESC;");
+        if ($q && $q->num_rows > 0) {
+            while ($b = $q->fetch_assoc()) {
+                $team = ($b['komanda'] == 1) ? 'Команда 1' : 'Команда 2';
+                $hp_color = ($b['hpnow'] > 0) ? 'green' : 'red';
+                echo '<div class="board2" style="text-align:left">';
+                if (empty($b['flag_bot'])) {
+                    echo '<a href="infa.php?mod=uzinfa&lgn=' . urlencode($b['login']) . '"><b>' . htmlspecialchars($b['login'], ENT_QUOTES, 'UTF-8') . '</b></a>';
+                } else {
+                    echo '<b>' . htmlspecialchars($b['login'], ENT_QUOTES, 'UTF-8') . '</b> <span style="color:#888;">[бот]</span>';
+                }
+                echo ' [' . $b['lvl'] . '] — ';
+                echo '<span style="color:' . $hp_color . '">' . $b['hpnow'] . '/' . $b['hpmax'] . '</span>';
+                echo ' — ' . $team;
+                echo ' — урон: ' . $b['uron_boi'];
+                echo '</div>';
+            }
+        } else {
+            echo '<div class="board2">В бою никого нет.</div>';
+        }
+        knopka('battle.php', 'Вернуться в бой', 1);
+        fin();
+        break;
+}
+
+// 3 последних записи лога
+$q = $db->query("SELECT `log` FROM `battlelog` WHERE `boi_id` = '{$bid}' ORDER BY `id` DESC LIMIT 3;");
+if ($q) {
+    while ($stlog = $q->fetch_assoc()) {
+        $logboi .= $stlog['log'];
+    }
+}
+
+if (empty($logboi)) {
+    $logboi = $me['login'] . ' начинает бой в ' . date('H:i:s', (int)$boi['boistart']) . '<br/>';
+    $db->query("INSERT INTO `battlelog` VALUES (0, '{$bid}', '{$t}', '" . $db->real_escape_string($logboi) . "');");
+}
+
+// Разбор бойцов
+$q = $db->query("SELECT * FROM `combat` WHERE `boi_id` = '{$bid}';");
+if ($q) {
+    while ($bz = $q->fetch_assoc()) {
+        if ($bz['time_udar'] < $curtime - 1800 && $bz['hpnow'] > 0) {
+            $bz['hpnow'] = 0;
+            $bz['mananow'] = 0;
+            if (empty($bz['flag_bot'])) $db->query("UPDATE `users` SET `hpnow` = 0, `mananow` = 0 WHERE `login` = '" . $db->real_escape_string($bz['login']) . "' LIMIT 1;");
+            $db->query("UPDATE `combat` SET `hpnow` = 0, `mananow` = 0 WHERE `boi_id` = {$bid} AND `id` = " . (int)$bz['id'] . " LIMIT 1;");
+        }
+        if ($bz['time_udar'] < $curtime - $hodtime && $bz['hpnow'] > 0) {
+            $db->query("UPDATE `combat` SET `kuda_udar` = 2, `kuda_blok` = 2 WHERE `boi_id` = {$bid} AND `id` = " . (int)$bz['id'] . " LIMIT 1;");
+        }
+        if ($bz['flag_bot'] == 1 && $bz['hpnow'] > 0 && (empty($bz['kuda_udar']) || empty($bz['kuda_blok']))) {
+            $bz['kuda_udar'] = mt_rand(1, 3);
+            $bz['kuda_blok'] = mt_rand(1, 3);
+            $db->query("UPDATE `combat` SET `kuda_udar` = " . (int)$bz['kuda_udar'] . ", `kuda_blok` = " . (int)$bz['kuda_blok'] . " WHERE `boi_id` = {$bid} AND `id` = " . (int)$bz['id'] . " LIMIT 1;");
+        }
+        if ($bz['hpnow'] > 0) {
+            if ($bz['komanda'] == 1) {
+                $kom1sum++;
+                if (empty($bz['sopernik'])) $kom1[] = (int)$bz['id'];
+                if (empty($bz['flag_bot'])) $komanda1 .= '<a href="infa.php?mod=uzinfa&lgn=' . $bz['login'] . '"><span style="color:' . $notice . '">' . $bz['login'] . '</span></a> [' . $bz['lvl'] . '] (' . $bz['hpnow'] . '/' . $bz['hpmax'] . ') урон: ' . $bz['uron_boi'] . '<br/>';
+                else $komanda1 .= '<span style="color:' . $notice . '">' . $bz['login'] . '</span> [' . $bz['lvl'] . '] (' . $bz['hpnow'] . '/' . $bz['hpmax'] . ') урон: ' . $bz['uron_boi'] . '<br/>';
+            } else {
+                $kom2sum++;
+                if (empty($bz['sopernik'])) $kom2[] = (int)$bz['id'];
+                if (empty($bz['flag_bot'])) $komanda2 .= '<a href="infa.php?mod=uzinfa&lgn=' . $bz['login'] . '"><span style="color:' . $male . '">' . $bz['login'] . '</span></a> [' . $bz['lvl'] . '] (' . $bz['hpnow'] . '/' . $bz['hpmax'] . ') урон: ' . $bz['uron_boi'] . '<br/>';
+                else $komanda2 .= '<span style="color:' . $male . '">' . $bz['login'] . '</span> [' . $bz['lvl'] . '] (' . $bz['hpnow'] . '/' . $bz['hpmax'] . ') урон: ' . $bz['uron_boi'] . '<br/>';
+            }
+        }
+    }
+}
+
+// Разбить на пары
+while (count($kom1) > 0 && count($kom2) > 0) {
+    shuffle($kom1);
+    shuffle($kom2);
+    $rand1 = mt_rand(0, count($kom1) - 1);
+    $rand2 = mt_rand(0, count($kom2) - 1);
+    $boeckm1 = $kom1[$rand1];
+    $boeckm2 = $kom2[$rand2];
+    unset($kom1[$rand1]);
+    unset($kom2[$rand2]);
+    $kom1 = array_values($kom1);
+    $kom2 = array_values($kom2);
+    $db->query("UPDATE `combat` SET `sopernik` = '{$boeckm1}' WHERE `id` = '{$boeckm2}' LIMIT 1;");
+    $db->query("UPDATE `combat` SET `sopernik` = '{$boeckm2}' WHERE `id` = '{$boeckm1}' LIMIT 1;");
+    if ($boeckm1 == $me['id']) $me['sopernik'] = $boeckm2;
+    if ($boeckm2 == $me['id']) $me['sopernik'] = $boeckm1;
+}
+
+// Финиш
+if (empty($komanda1) || empty($komanda2)) {
+    $winkom = 0;
+    $koef = 0.33;
+    if ($boi['krov'] == 2) $koef *= 3;
+    if (in_array((int)$boi['krov'], [3, 4, 5], true)) $koef = 0.01;
+    if ($prazdn == 1) $koef *= 2;
+
+    $q = $db->query("SELECT SUM(`lvl`) AS `s` FROM `combat` WHERE `boi_id` = {$bid} AND `komanda` = 1;");
+    $lvl1 = $q ? (int)$q->fetch_assoc()['s'] : 0;
+    $q = $db->query("SELECT SUM(`lvl`) AS `s` FROM `combat` WHERE `boi_id` = {$bid} AND `komanda` = 2;");
+    $lvl2 = $q ? (int)$q->fetch_assoc()['s'] : 0;
+    if ($lvl1 < 1) $lvl1 = 1;
+    if ($lvl2 < 1) $lvl2 = 1;
+
+    if ($kom1sum > 0 && $kom2sum <= 0) {
+        $winkom = 1;
+        $koef = round($lvl2 / $lvl1 * $koef, 2);
+        $db->query("UPDATE `combat`, `users` SET `users`.`win` = `users`.`win` + 1 WHERE (`combat`.`flag_bot` = 0 AND `combat`.`komanda` = 1 AND `combat`.`boi_id` = '{$bid}' AND `users`.`login` = `combat`.`login`);");
+        $db->query("UPDATE `combat`, `users` SET `users`.`lost` = `users`.`lost` + 1, `users`.`doping` = 0, `users`.`doping_time` = 0, `users`.`rabota` = 0, `users`.`loc` = 1, `users`.`kvest_now` = 0, `users`.`kvest_step` = 0 WHERE (`combat`.`flag_bot` = 0 AND `combat`.`komanda` = 2 AND `combat`.`boi_id` = '{$bid}' AND `users`.`login` = `combat`.`login`);");
+    }
+    if ($kom1sum <= 0 && $kom2sum > 0) {
+        $winkom = 2;
+        $koef = round($lvl1 / $lvl2 * $koef, 2);
+        $db->query("UPDATE `combat`, `users` SET `users`.`win` = `users`.`win` + 1 WHERE (`combat`.`flag_bot` = 0 AND `combat`.`komanda` = 2 AND `combat`.`boi_id` = '{$bid}' AND `users`.`login` = `combat`.`login`);");
+        $db->query("UPDATE `combat`, `users` SET `users`.`lost` = `users`.`lost` + 1, `users`.`doping` = 0, `users`.`doping_time` = 0, `users`.`rabota` = 0, `users`.`loc` = 1, `users`.`kvest_now` = 0, `users`.`kvest_step` = 0 WHERE (`combat`.`flag_bot` = 0 AND `combat`.`komanda` = 1 AND `combat`.`boi_id` = '{$bid}' AND `users`.`login` = `combat`.`login`);");
+    } elseif ($kom1sum <= 0 && $kom2sum <= 0) {
+        $final_log = '<span style="color:' . $male . '">НИЧЬЯ</span><br/>' . $final_log;
+    }
+
+    if ($prazdn == 1) $final_log = '<span style="color:yellow">Праздничное увеличение опыт х2, монеты х2</span><br/>' . $final_log;
+
+    $q = $db->query("SELECT * FROM `combat` WHERE `boi_id` = {$bid} AND `komanda` = 1 ORDER BY `uron_boi` DESC;");
+    if ($q) {
+        while ($kom1 = $q->fetch_assoc()) {
+            $str = $kom1['login'] . ' (' . $kom1['hpnow'] . '/' . $kom1['hpmax'] . ') (урон: ' . $kom1['uron_boi'];
+            if ($winkom == 1) {
+                if (empty($kom1['flag_bot'])) {
+                    $qq = $db->query("SELECT `id`, `vip`, `ref` FROM `users` WHERE `login` = '" . $db->real_escape_string($kom1['login']) . "' LIMIT 1;");
+                    $slog = $qq ? $qq->fetch_assoc() : null;
+                    $exp1 = (int)($koef * $kom1['uron_boi']);
+                    if ($slog && $slog['vip'] > $curtime) $exp1 = (int)(2 * $exp1);
+                    if ($slog && !empty($slog['ref'])) addexp($slog['ref'], (int)ceil($exp1 * 0.05));
+                    if ($slog) addexp($slog['id'], $exp1);
+                } else {
+                    $exp1 = (int)($koef * $kom1['uron_boi']);
+                }
+                $str .= ', опыт: ' . $exp1;
+            }
+            $str .= ')<br/>';
+            $final_log = $str . $final_log;
+        }
+    }
+    $final_log = '<small>VS.</small><br/>' . $final_log . '<br/>';
+
+    $q = $db->query("SELECT * FROM `combat` WHERE `boi_id` = {$bid} AND `komanda` = 2 ORDER BY `uron_boi` DESC;");
+    if ($q) {
+        while ($kom2 = $q->fetch_assoc()) {
+            $str = $kom2['login'] . ' (' . $kom2['hpnow'] . '/' . $kom2['hpmax'] . ') (урон: ' . $kom2['uron_boi'];
+            if ($winkom == 2) {
+                if (empty($kom2['flag_bot'])) {
+                    $qq = $db->query("SELECT `id`, `vip`, `ref` FROM `users` WHERE `login` = '" . $db->real_escape_string($kom2['login']) . "' LIMIT 1;");
+                    $slog = $qq ? $qq->fetch_assoc() : null;
+                    $exp2 = (int)($koef * $kom2['uron_boi']);
+                    if ($slog && $slog['vip'] > $curtime) $exp2 = (int)(2 * $exp2);
+                    if ($slog && !empty($slog['ref'])) addexp($slog['ref'], (int)ceil($exp2 * 0.05));
+                    if ($slog) addexp($slog['id'], $exp2);
+                } else {
+                    $exp2 = (int)($koef * $kom2['uron_boi']);
+                }
+                $str .= ', опыт: ' . $exp2;
+            }
+            $str .= ')<br/>';
+            $final_log = $str . $final_log;
+        }
+    }
+    if (!empty($winkom)) $final_log = 'Коэффициент опыта: ' . $koef . '<br/>' . $final_log;
+
+    $db->query("INSERT INTO `battlelog` VALUES (0, '{$bid}', '{$t}', '" . $db->real_escape_string($final_log) . "');");
+    $db->query("DELETE FROM `combat` WHERE `boi_id` = 0 OR `boi_id` = {$bid};");
+    $db->query("UPDATE `battle` SET `flag_boi` = 0 WHERE `id` = {$bid} LIMIT 1;");
+    $db->query("UPDATE `users` SET `status` = 0, `boi_id` = 0, `lastdate` = '{$t}', `hptime` = '{$t}', `manatime` = '{$t}' WHERE `boi_id` = {$bid};");
+
+    require_once __DIR__ . '/inc/hpstring.php';
+    knopka('loc.php', 'Бой завершен', 1);
+    unset($_SESSION['pkstr']);
+    $logboi = '';
+    $q = $db->query("SELECT * FROM `battlelog` WHERE `boi_id` = {$bid} ORDER BY `id` DESC LIMIT 3;");
+    echo '<div class="board" style="text-align:left">';
+    if ($q) {
+        while ($stlog = $q->fetch_assoc()) echo $stlog['log'];
+    }
+    echo '</div>';
+    fin();
+}
+
+require_once __DIR__ . '/inc/hpstring.php';
+
+if (($kom1sum > 1 && $me['komanda'] == 2) || ($kom2sum > 1 && $me['komanda'] == 1) || empty($me['sopernik']) || $me['hpnow'] < 0) {
+    echo '<div class="board" style="text-align:left;">' . $komanda1 . 'VS<br/>' . $komanda2 . '</div>';
+}
+
+$q = $db->query("SELECT `invent`.`id` FROM `invent`, `item` WHERE `invent`.`login` = '" . $db->real_escape_string($me['login']) . "' AND `invent`.`flag_equip` = 1 AND `item`.`equip` = 'sumka' AND `invent`.`ido` = `item`.`id`;");
+$sum = ($q && $q->num_rows > 0) ? 1 : 0;
+
+if (!empty($me['sopernik'])) {
+    if ($me['komanda'] == 1) { $col1 = $notice; $col2 = $male; }
+    else { $col1 = $male; $col2 = $notice; }
+
+    $q = $db->query("SELECT * FROM `combat` WHERE `id` = " . (int)$me['sopernik'] . " LIMIT 1;");
+    $uz_view = $q ? $q->fetch_assoc() : null;
+
+    if ($uz_view) {
+        echo '<div class="board" style="text-align:left;">';
+        echo '<span style="color:' . $col1 . '"><b>' . $me['login'] . '</b></span> [' . $me['lvl'] . '] (' . $me['hpnow'] . '/' . $me['hpmax'] . ') урон: ' . $me['uron_boi'] . '<br/><small>VS.</small><br/>';
+        if ($uz_view['flag_bot'] == 1) {
+            echo '<span style="color:' . $col2 . '"><b>' . $uz_view['login'] . '</b></span> [' . $uz_view['lvl'] . '] (' . $uz_view['hpnow'] . '/' . $uz_view['hpmax'] . ') урон: ' . $uz_view['uron_boi'];
+        } else {
+            $tajm = $curtime - (int)$uz_view['time_udar'];
+            $tajm = $hodtime - $tajm;
+            if ($tajm < 0) $tajm = 0;
+            echo '<span style="color:' . $col2 . '"><b><a href="infa.php?mod=uzinfa&lgn=' . $uz_view['login'] . '">' . $uz_view['login'] . '</a></b></span> [' . $uz_view['lvl'] . '] (' . $uz_view['hpnow'] . '/' . $uz_view['hpmax'] . ') урон: ' . $uz_view['uron_boi'] . ', тайм: ' . $tajm;
+        }
+        echo '</div>';
+
+        if ((empty($me['kuda_udar']) || empty($me['kuda_blok'])) && $me['hpnow'] > 0) {
+            echo '<div class="board" style="text-align:left;">';
+            if ($uz_view['flag_bot'] == 1) {
+                echo '<a class="navig" href="battle.php?ud=' . mt_rand(1, 3) . '&bl=' . mt_rand(1, 3) . '&r=' . mt_rand(1111, 9999) . '"><b>Ударить</b></a>';
+            } else {
+                echo '<form action="battle.php?r=' . mt_rand(1111, 9999) . '" method="POST">';
+                $rndblok = mt_rand(1, 3);
+                $catbl = [1 => '', 2 => '', 3 => ''];
+                $catbl[$rndblok] = 'selected';
+                echo '<select name="bl">';
+                echo '<option value="2" ' . $catbl[2] . '>блок груди</option>';
+                echo '<option value="1" ' . $catbl[1] . '>блок головы</option>';
+                echo '<option value="3" ' . $catbl[3] . '>блок ног</option>';
+                echo '</select>';
+                $rndud = mt_rand(1, 3);
+                $catud = [1 => '', 2 => '', 3 => ''];
+                $catud[$rndud] = 'selected';
+                echo '<select name="ud">';
+                echo '<option value="2" ' . $catud[2] . '>удар в грудь</option>';
+                echo '<option value="1" ' . $catud[1] . '>удар в голову</option>';
+                echo '<option value="3" ' . $catud[3] . '>удар по ногам</option>';
+                echo '</select>';
+                echo '<input type="submit" value="Удар"></form>';
+            }
+            echo '</div>';
+        }
+    }
+}
+
+$tajm = $curtime - (int)$me['time_udar'];
 $tajm = $hodtime - $tajm;
-if($tajm < 0) $tajm = 0;
-echo '<div class="board3" style="text-align:left;">
-<a href="battle.php?r='.mt_rand(1,999).'">Обновить (<b>'.$tajm.'</b>)</a> ';
-if($ost == 0) echo '- <a href="battle.php?mod=sbrospar">Сброс</a> ';
-if($sum > 0 and $me['hpnow'] > 0) echo '- <a href="battle.php?mod=sumka">Сумка</a> ';
-if(!empty($_SESSION['pkstr']))
-	{
-	echo $_SESSION['pkstr'];
-	unset($_SESSION['pkstr']);
-	}
+if ($tajm < 0) $tajm = 0;
+
+echo '<div class="board3" style="text-align:left;">';
+echo '<a href="battle.php?r=' . mt_rand(1, 999) . '">Обновить (<b>' . $tajm . '</b>)</a> ';
+if ($ost == 0) echo '- <a href="battle.php?mod=sbrospar">Сброс</a> ';
+if ($sum > 0 && $me['hpnow'] > 0) echo '- <a href="battle.php?mod=sumka">Сумка</a> ';
+if (!empty($pkstr_display)) {
+    echo ' <span style="margin-left:8px;">' . $pkstr_display . '</span>';
+}
 echo '</div>';
-echo '<div class="board" style="text-align:left;">'.$logboi.'</div>';
+echo '<div class="board" style="text-align:left;">' . $logboi . '</div>';
 echo '<div class="menu">';
 echo '<a href="battle.php?mod=long">Длинный лог боя</a> ';
 echo '- <a href="battle.php?mod=whowhere">Кто в бою</a> ';
 echo '</div>';
 fin();
-?>

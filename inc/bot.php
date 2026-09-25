@@ -1,216 +1,85 @@
 <?php
-##############
-# 24.12.2014 #
-##############
+/**
+ * Базовые статы ботов по уровням игрока и создание бота.
+ * PHP 8.2-совместимая версия.
+ */
 
-switch ($f['lvl']):
-case 1:
-	$basezdor = 3;
-	$basesila = 3;
-	$baselovka = 15;
-	$baseinta = 15;
-break;
+// Таблица базовых статов: [zdor, sila, lovka, inta]
+$botBase = [
+    1  => [3,   3,   15,  15],
+    2  => [9,   11,  30,  30],
+    3  => [18,  22,  50,  50],
+    4  => [30,  37,  65,  65],
+    5  => [45,  56,  85,  85],
+    6  => [60,  75,  100, 100],
+    7  => [84,  105, 125, 125],
+    8  => [108, 135, 145, 145],
+    9  => [135, 168, 165, 165],
+    10 => [165, 206, 190, 190],
+    11 => [198, 247, 210, 210],
+    12 => [234, 292, 235, 235],
+    13 => [273, 341, 255, 255],
+    14 => [315, 393, 280, 280],
+    15 => [360, 450, 305, 305],
+    16 => [408, 510, 330, 330],
+    17 => [459, 573, 355, 355],
+    18 => [513, 641, 380, 380],
+    19 => [570, 712, 410, 410],
+    20 => [630, 787, 435, 435],
+    21 => [693, 866, 465, 465],
+    22 => [759, 948, 495, 495],
+    23 => [828, 1035, 520, 520],
+    24 => [900, 1125, 555, 555],
+];
 
-case 2:
-	$basezdor = 9;
-	$basesila = 11;
-	$baselovka = 30;
-	$baseinta = 30;
-break;
+$lvl = (int)($f['lvl'] ?? 1);
+$base = $botBase[$lvl] ?? [975, 1218, 585, 585];
+$basezdor   = $base[0];
+$basesila   = $base[1];
+$baselovka  = $base[2];
+$baseinta   = $base[3];
 
-case 3:
-	$basezdor = 18;
-	$basesila = 22;
-	$baselovka = 50;
-	$baseinta = 50;
-break;
+function getHP($s = 1)
+{
+    global $basezdor;
+    return mt_rand((int)($basezdor * $s * 0.7), (int)($basezdor * $s * 0.95)) * 10;
+}
 
-case 4:
-	$basezdor = 30;
-	$basesila = 37;
-	$baselovka = 65;
-	$baseinta = 65;
-break;
+function getSila($s = 1)
+{
+    global $basesila;
+    return mt_rand((int)($basesila * $s * 0.7), (int)($basesila * $s * 0.95));
+}
 
-case 5:
-	$basezdor = 45;
-	$basesila = 56;
-	$baselovka = 85;
-	$baseinta = 85;
-break;
+function getLovka($s = 1)
+{
+    global $baselovka;
+    return mt_rand((int)($baselovka * $s * 0.7), (int)($baselovka * $s * 0.95));
+}
 
-case 6:
-	$basezdor = 60;
-	$basesila = 75;
-	$baselovka = 100;
-	$baseinta = 100;
-break;
+function getInta($s = 1)
+{
+    global $baseinta;
+    return mt_rand((int)($baseinta * $s * 0.7), (int)($baseinta * $s * 0.95));
+}
 
-case 7:
-	$basezdor = 84;
-	$basesila = 105;
-	$baselovka = 125;
-	$baseinta = 125;
-break;
+function addBot($name, $lvl)
+{
+    $db = DBC::instance();
+    global $boi_id;
+    if (!isset($boi_id)) $boi_id = 0;
+    $boi_id = (int)$boi_id;
+    $name_esc = $db->real_escape_string($name);
 
-case 8:
-	$basezdor = 108;
-	$basesila = 135;
-	$baselovka = 145;
-	$baseinta = 145;
-break;
+    require __DIR__ . '/bot_base.php';
 
-case 9:
-	$basezdor = 135;
-	$basesila = 168;
-	$baselovka = 165;
-	$baseinta = 165;
-break;
+    $sila  = (int)$sila;
+    $inta  = (int)$inta;
+    $lovka = (int)$lovka;
+    $hp    = (int)$hp;
+    $lvl   = (int)$lvl;
+    $now   = time();
 
-case 10:
-	$basezdor = 165;
-	$basesila = 206;
-	$baselovka = 190;
-	$baseinta = 190;
-break;
-
-case 11:
-	$basezdor = 198;
-	$basesila = 247;
-	$baselovka = 210;
-	$baseinta = 210;
-break;
-
-case 12:
-	$basezdor = 234;
-	$basesila = 292;
-	$baselovka = 235;
-	$baseinta = 235;
-break;
-
-case 13:
-	$basezdor = 273;
-	$basesila = 341;
-	$baselovka = 255;
-	$baseinta = 255;
-break;
-
-case 14:
-	$basezdor = 315;
-	$basesila = 393;
-	$baselovka = 280;
-	$baseinta = 280;
-break;
-
-case 15:
-	$basezdor = 360;
-	$basesila = 450;
-	$baselovka = 305;
-	$baseinta = 305;
-break;
-
-case 16:
-	$basezdor = 408;
-	$basesila = 510;
-	$baselovka = 330;
-	$baseinta = 330;
-break;
-
-case 17:
-	$basezdor = 459;
-	$basesila = 573;
-	$baselovka = 355;
-	$baseinta = 355;
-break;
-
-case 18:
-	$basezdor = 513;
-	$basesila = 641;
-	$baselovka = 380;
-	$baseinta = 380;
-break;
-
-case 19:
-	$basezdor = 570;
-	$basesila = 712;
-	$baselovka = 410;
-	$baseinta = 410;
-break;
-
-case 20:
-	$basezdor = 630;
-	$basesila = 787;
-	$baselovka = 435;
-	$baseinta = 435;
-break;
-
-case 21:
-	$basezdor = 693;
-	$basesila = 866;
-	$baselovka = 465;
-	$baseinta = 465;
-break;
-
-case 22:
-	$basezdor = 759;
-	$basesila = 948;
-	$baselovka = 495;
-	$baseinta = 495;
-break;
-
-case 23:
-	$basezdor = 828;
-	$basesila = 1035;
-	$baselovka = 520;
-	$baseinta = 520;
-break;
-
-case 24:
-	$basezdor = 900;
-	$basesila = 1125;
-	$baselovka = 555;
-	$baseinta = 555;
-break;
-
-default:
-	$basezdor = 975;
-	$basesila = 1218;
-	$baselovka = 585;
-	$baseinta = 585;
-break;
-
-endswitch;
-function getHP($s=1)
-	{
-	global $basezdor;
-	return mt_rand(intval($basezdor * $s * 0.7), intval($basezdor * $s * 0.95)) * 10;
-	}
-
-function getSila($s=1)
-	{
-	global $basesila;
-	return mt_rand(intval($basesila * $s * 0.7), intval($basesila * $s * 0.95));
-	}
-
-function getLovka($s=1)
-	{
-	global $baselovka;
-	return mt_rand(intval($baselovka * $s * 0.7), intval($baselovka * $s * 0.95));
-	}
-
-function getInta($s=1)
-	{
-	global $baseinta;
-	return mt_rand(intval($baseinta * $s * 0.7), intval($baseinta * $s * 0.95));
-	}
-
-function addBot($name,$lvl)
-	{
-	$db = DBC::instance();
-	global $boi_id;
-    if(!isset($boi_id)) $boi_id = 0;
-	require('inc/bot_base.php');	//все данные о ботах в одном месте
-	$q = $db->query("insert into `combat` values(0,'{$name}',{$sila},{$inta},{$lovka},1,0,0,0,{$lvl},{$hp},{$hp},0,0,{$boi_id},0,1,0,'{$_SERVER['REQUEST_TIME']}','{$_SERVER['REQUEST_TIME']}');");
-	return 0;
-	}
-?>
+    $db->query("INSERT INTO `combat` VALUES (0, '{$name_esc}', {$sila}, {$inta}, {$lovka}, 1, 0, 0, 0, {$lvl}, {$hp}, {$hp}, 0, 0, {$boi_id}, 0, 1, 0, '{$now}', '{$now}', 0);");
+    return 0;
+}

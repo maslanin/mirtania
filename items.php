@@ -1,17 +1,19 @@
 <?php
-require_once('class/DBC.php');
-require_once('inc/func.php');
-require_once('class/items.php');
-$q = $db->query("select login from `users`;");
+/**
+ * Выдача вещей всем игрокам (утилита).
+ * PHP 8.2-совместимая версия.
+ */
 
+require_once __DIR__ . '/class/DBC.php';
+require_once __DIR__ . '/inc/func.php';
+require_once __DIR__ . '/class/items.php';
+
+$q = $db->query("SELECT `login` FROM `users`;");
 $count = 0;
-while($a = $q->fetch_assoc())
-
-{
-	$items->add_item($a['login'], 636, 1); // 1 в конце флаг передачи, если не поставить, то игрок не сможет эту вещь передавать потом
-	$count++;
+if ($q) {
+    while ($a = $q->fetch_assoc()) {
+        $items->add_item($a['login'], 636, 1);
+        $count++;
+    }
 }
-
-echo 'Игрокам передано '.$count.' вещей';
-
-?>
+echo 'Игрокам передано ' . $count . ' вещей';

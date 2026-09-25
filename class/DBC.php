@@ -1,51 +1,81 @@
 <?php
-// главный класс работы с MySQL
-define('DB_SERVER', 'localhost');	//хост
-define('DB_USER', 'root');			//юзер
-define('DB_PASS', '');	//пасс
-define('DB_BASE', 'game');			//база
-define('DB_CHARSET', 'UTF8');		//кодировка
-class DBC {
+/**
+ * Класс работы с MySQL.
+ * PHP 8.2-совместимая версия.
+ *
+ * @package Mirtania
+ */
 
-	private $_handle = null;
-	private static $_instance = null;
-	public $sqlc = 0;
-	private function __construct() {
-		$this->connect();
-	}
-	// синглтон. пример подключения: $db = DBC::instance();
-	public static function instance() {
-		if (self::$_instance == null)
-			self::$_instance = new DBC();
+// Настройки подключения.
+// TODO: вынести в .env или config.php
+define('DB_SERVER', '127.0.0.1');
+define('DB_USER',   'root');
+define('DB_PASS',   '');
+define('DB_BASE',   'game');
+define('DB_CHARSET','utf8mb4');
 
-		return self::$_instance;
-	}
-	// соединяемся с базой
-	private function connect() {
-		@$this->_handle = new mysqli(DB_SERVER, DB_USER, DB_PASS, DB_BASE);	// соединяемся
-		if (mysqli_connect_error()) {
-			exit('Ошибка соединения с базой данных, повторите через несколько секунд или обратитесь к администратору!');
-		}
-		$this->_handle->set_charset(DB_CHARSET);	// установим кодировку
-	}
-	// обычный запрос к базе
-	public function query($q) {
-		$this->sqlc++;
-		return $this->_handle->query($q);
-	}
-	
-	public function insert_id() {
-		return $this->_handle->insert_id;
-	}
-	
-	public function real_escape_string($s) {
-		return $this->_handle->real_escape_string($s);
-	}
-	public function count_sqlc() {
-		return $this->sqlc++;
-	}
+final class DBC
+{
+    private ?mysqli $_handle = null;
+    private static ?DBC $_instance = null;
+
+    private function __construct()
+    {
+        $this->connect();
+    }
+
+    public static function instance(): DBC
+    {
+        if (self::$_instance === null) {
+            self::$_instance = new DBC();
+        }
+        return self::$_instance;
+    }
+
+    private function connect(): void
+    {
+        // В PHP 8.2 @ не глушит исключения — отключаем их через mysqli_report.
+        mysqli_report(MYSQLI_REPORT_OFF);
+
+        $this->_handle = new mysqli(DB_SERVER, DB_USER, DB_PASS, DB_BASE);
+
+        if ($this->_handle->connect_error) {
+            error_log('MySQL connect error: ' . $this->_handle->connect_error);
+            exit('Ошибка соединения с базой данных, повторите через несколько секунд или обратитесь к администратору!');
+        }
+
+        $this->_handle->set_charset(DB_CHARSET);
+    }
+
+    /**
+     * Обычный запрос к БД.
+     *
+     * @return mysqli_result|bool
+     */
+    public function query(string $q)
+    {
+        $result = $this->_handle->query($q);
+        if ($result === false) {
+            error_log('SQL error: ' . $this->_handle->error . ' | Query: ' . $q);
+        }
+        return $result;
+    }
+
+    public function insert_id(): int
+    {
+        return $this->_handle->insert_id;
+    }
+
+    public function real_escape_string(string $s): string
+    {
+        return $this->_handle->real_escape_string($s);
+    }
+
+    public function error(): string
+    {
+        return $this->_handle->error;
+    }
 }
 
-// сразу же соединимся
+// Сразу же соединимся
 $db = DBC::instance();
-?>

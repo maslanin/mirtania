@@ -1,99 +1,47 @@
 <?php
-##############
-# 24.12.2014 #
-##############
+/**
+ * Таблица опыта и свободных статов.
+ * PHP 8.2-совместимая версия.
+ */
 
-switch($f['lvl']):
-case 1:
-	$exp = 500;
-break;
+$expTable = [
+    1  => 500,
+    2  => 2000,
+    3  => 5000,
+    4  => 10000,
+    5  => 20000,
+    6  => 50000,
+    7  => 100000,
+    8  => 200000,
+    9  => 500000,
+    10 => 1000000,
+    11 => 2000000,
+    12 => 5000000,
+    13 => 10000000,
+    14 => 20000000,
+    15 => 50000000,
+    16 => 100000000,
+    17 => 200000000,
+    18 => 500000000,
+    19 => 1000000000,
+];
+$lvl = (int)($f['lvl'] ?? 1);
+if ($lvl < 1) $lvl = 1;
+$exp = $expTable[$lvl] ?? 2000000000;
 
-case 2:
-	$exp = 2000;
-break;
+// Опыта до апа
+$tolev = $exp - (int)($f['exp'] ?? 0);
 
-case 3:
-	$exp = 5000;
-break;
+// Всего статов за уровень
+$mlvl = $lvl > 25 ? 25 : $lvl;
+// Сумма (10 + i) для i от 1 до mlvl
+$all_stats = $mlvl * 10 + (int)($mlvl * ($mlvl + 1) / 2);
 
-case 4:
-	$exp = 10000;
-break;
-
-case 5:
-	$exp = 20000;
-break;
-
-case 6:
-	$exp = 50000;
-break;
-
-case 7:
-	$exp = 100000;
-break;
-
-case 8:
-	$exp = 200000;
-break;
-
-case 9:
-	$exp = 500000;
-break;
-
-case 10:
-	$exp = 1000000;
-break;
-
-case 11:
-	$exp = 2000000;
-break;
-
-case 12:
-	$exp = 5000000;
-break;
-
-case 13:
-	$exp = 10000000;
-break;
-
-case 14:
-	$exp = 20000000;
-break;
-
-case 15:
-	$exp = 50000000;
-break;
-
-case 16:
-	$exp = 100000000;
-break;
-
-case 17:
-	$exp = 200000000;
-break;
-
-case 18:
-	$exp = 500000000;
-break;
-
-case 19:
-	$exp = 1000000000;
-break;
-
-default:
-	$exp = 2000000000;
-break;
-endswitch;
-// опыта до апа
-$tolev = $exp - $f['exp'];
-
-$all_stats = 0;
-$mlvl = $f['lvl'];
-if($mlvl > 25) $mlvl = 25;
-for($i = 1; $i <= $mlvl; $i++)
-	{
-	$all_stats += (10 + $i);
-	}
-// свободных статов
-$stat_free = $all_stats - ($f['sila'] + $f['inta'] + $f['lovka'] + $f['intel'] + $f['zdor']); //свободные статы
-?>
+// Свободные статы
+$stat_free = $all_stats
+    - ((int)($f['sila']  ?? 0)
+     + (int)($f['inta']  ?? 0)
+     + (int)($f['lovka'] ?? 0)
+     + (int)($f['intel'] ?? 0)
+     + (int)($f['zdor']  ?? 0));
+if ($stat_free < 0) $stat_free = 0;

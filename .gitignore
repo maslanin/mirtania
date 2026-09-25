@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# Бэкапы
+*.bak
+*_backup_*.sql
+
+# Логи
+logs/
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp

@@ -1,130 +1,105 @@
 <?php
-##############
-# 24.12.2014 #
-##############
-if($uz['flag_bot'] == 1)
-	{
-	if($uz['login'] == 'Гарпия' && mt_rand(1, 100) <= 20)
-		{
-		$item = $items->base_shmot(168); // тотем гарпии
-		if(!empty($me['klan'])) klan_points($me['klan'],1);
-		$udar_log = '<span style="color:'.$female.'">'.$me['login'].' выбивает '.$item['name'].'</span> <br/> '.$udar_log;
-		$items->add_item($me['login'], $item['id'], 1);
-		}
-	if($uz['login'] == 'Ползун' && mt_rand(1, 100) <= 20)
-		{
-		$item = $items->base_shmot(169); // сломаный брас
-		if(!empty($me['klan'])) klan_points($me['klan'],1);
-		$udar_log = '<span style="color:'.$female.'">'.$me['login'].' выбивает '.$item['name'].'</span> <br/> '.$udar_log;
-		$items->add_item($me['login'], $item['id'], 1);
-		}
-	if($uz['login'] == 'Остер' && mt_rand(1, 100) <= 20)
-		{
-		$item = $items->base_shmot(162);	// руна 1
-		if(!empty($me['klan'])) klan_points($me['klan'],1);
-		$udar_log = '<span style="color:'.$female.'">'.$me['login'].' выбивает '.$item['name'].'</span> <br/> '.$udar_log;
-		$items->add_item($me['login'], $item['id'], 1);
-		}
-	if($uz['login'] == 'Черный гоблин' && mt_rand(1, 100) <= 20)
-		{
-		$item = $items->base_shmot(161); // руна 2
-		if(!empty($me['klan'])) klan_points($me['klan'],1);
-		$udar_log = '<span style="color:'.$female.'">'.$me['login'].' выбивает '.$item['name'].'</span> <br/> '.$udar_log;
-		$items->add_item($me['login'], $item['id'], 1);
-		}
-	if($uz['login'] == 'Падальщик' && mt_rand(1, 100) <= 20)
-		{
-		$item = $items->base_shmot(160); // руна 3
-		if(!empty($me['klan'])) klan_points($me['klan'],1);
-		$udar_log = '<span style="color:'.$female.'">'.$me['login'].' выбивает '.$item['name'].'</span> <br/> '.$udar_log;
-		$items->add_item($me['login'], $item['id'], 1);
-		}
-	if($uz['login'] == 'Кротокрыс' && mt_rand(1, 100) <= 20)
-		{
-		$item = $items->base_shmot(159); // руна 4
-		if(!empty($me['klan'])) klan_points($me['klan'],1);
-		$udar_log = '<span style="color:'.$female.'">'.$me['login'].' выбивает '.$item['name'].'</span> <br/> '.$udar_log;
-		$items->add_item($me['login'], $item['id'], 1);
-		}
-	if($uz['login'] == 'Орочий маг' && mt_rand(1, 100) <= 20)
-		{
-		$item = $items->base_shmot(158); // руна 5
-		if(!empty($me['klan'])) klan_points($me['klan'],1);
-		$udar_log = '<span style="color:'.$female.'">'.$me['login'].' выбивает '.$item['name'].'</span> <br/> '.$udar_log;
-		$items->add_item($me['login'], $item['id'], 1);
-		}
-	if($uz['login'] == 'Шелкопряд' && mt_rand(1, 100) <= 40)
-		{
-		$item = $items->base_shmot(164);	// шелковая нить
-		if(!empty($me['klan'])) klan_points($me['klan'],1);
-		$udar_log = '<span style="color:'.$female.'">'.$me['login'].' выбивает '.$item['name'].'</span> <br/> '.$udar_log;
-		$items->add_item($me['login'], $item['id'], 1);
-		}
-	if($uz['login'] == 'Ледяной голем')
-		{
-		$kvest = unserialize($f['kvest']);
-		$kvest['loc56ks']['lg'] = 1;
-		$f['kvest'] = serialize($kvest);
-		$udar_log = '<span style="color:'.$female.'">'.$me['login'].' выбивает Сердце ледяного голема</span> <br/> '.$udar_log;
-		$q = $db->query("update `users` set kvest='{$f['kvest']}' where id={$f['id']} limit 1;");
-		}
-	if($uz['login'] == 'Огненный голем')
-		{
-		$kvest = unserialize($f['kvest']);
-		$kvest['loc56ks']['og'] = 1;
-		$f['kvest'] = serialize($kvest);
-		$udar_log = '<span style="color:'.$female.'">'.$me['login'].' выбивает Сердце огненного голема</span> <br/> '.$udar_log;
-		$q = $db->query("update `users` set kvest='{$f['kvest']}' where id={$f['id']} limit 1;");
-		}
-	if($uz['login'] == 'Каменный голем')
-		{
-		$kvest = unserialize($f['kvest']);
-		$kvest['loc56ks']['kg'] = 1;
-		$f['kvest'] = serialize($kvest);
-		$udar_log = '<span style="color:'.$female.'">'.$me['login'].' выбивает Сердце каменного голема</span> <br/> '.$udar_log;
-		$q = $db->query("update `users` set kvest='{$f['kvest']}' where id={$f['id']} limit 1;");
-		}
-	if($uz['login'] == 'Тролль')
-		{
-		$af = $q = $db->query("select login from `combat` where boi_id={$me['boi_id']} and uron_boi>999 and flag_bot=0 and komanda=2;");
-		$l = array();
-		while($logins = $af->fetch_assoc())
-			{
-			$l[] = $logins['login'];
-			}
-		shuffle($l);
-		$winner = $l[0];
-		$item = $items->base_shmot(127); // точильный камень
-		$udar_log = '<span style="color:'.$female.'">'.$winner.' подбирает с распростертого тролля '.$item['name'].'</span> <br/> '.$udar_log;
-		$items->add_item($me['login'], $item['id'], 1);
-		}
-	if($uz['login'] == 'Дракон')
-		{
-		$af = $q = $db->query("select login from `combat` where boi_id={$me['boi_id']} and uron_boi>999 and flag_bot=0 and komanda=2;");
-		$l = array();
-		while($logins = $af->fetch_assoc())
-			{
-			$l[] = $logins['login'];
-			}
-		shuffle($l);
-		$winner = $l[0];
-		$item = $items->base_shmot(157); // молния судьбы
-		$udar_log = '<span style="color:'.$female.'">'.$winner.' подбирает с убитого монстра '.$item['name'].'</span> <br/> '.$udar_log;
-		$items->add_item($me['login'], $item['id'], 1);
-		}
-	if(mt_rand(1, 100) == 12)
-		{
-		$item = $items->base_shmot(121); // свиток нападения
-		if(!empty($me['klan'])) klan_points($me['klan'],1);
-		$udar_log = '<span style="color:'.$female.'">'.$me['login'].' выбивает '.$item['name'].'</span> <br/> '.$udar_log;
-		$items->add_item($me['login'], $item['id'], 1);
-		}
-	if(mt_rand(1, 100) == 45)
-		{
-		$item = $items->base_shmot(122); // свиток развоплощения
-		if(!empty($me['klan'])) klan_points($me['klan'],1);
-		$udar_log = '<span style="color:'.$female.'">'.$me['login'].' выбивает '.$item['name'].'</span> <br/> '.$udar_log;
-		$items->add_item($me['login'], $item['id'], 1);
-		}
-	}
-?>
+/**
+ * Дроп с ботов.
+ * PHP 8.2-совместимая версия.
+ *
+ * ИСПРАВЛЕН БАГ: Тролль и Дракон выдавали предмет $me, а не $winner.
+ */
+
+if (empty($uz['flag_bot'])) {
+    return;
+}
+
+$uz_login = $uz['login'];
+$me_login = $me['login'];
+$me_login_esc = $db->real_escape_string($me_login);
+
+// Обычный дроп: [имя бота => [item_id, шанс]]
+$dropTable = [
+    'Гарпия'         => [168, 20],
+    'Ползун'         => [169, 20],
+    'Остер'          => [162, 20],
+    'Черный гоблин'  => [161, 20],
+    'Падальщик'      => [160, 20],
+    'Кротокрыс'      => [159, 20],
+    'Орочий маг'     => [158, 20],
+    'Шелкопряд'      => [164, 40],
+];
+
+if (isset($dropTable[$uz_login])) {
+    [$itemId, $chance] = $dropTable[$uz_login];
+    if (mt_rand(1, 100) <= $chance) {
+        $item = $items->base_shmot($itemId);
+        if ($item !== null) {
+            if (!empty($me['klan'])) klan_points($me['klan'], 1);
+            $udar_log = '<span style="color:' . $female . '">' . $me_login . ' выбивает ' . $item['name'] . '</span> <br/> ' . $udar_log;
+            $items->add_item($me_login, $item['id'], 1);
+        }
+    }
+}
+
+// Големы — прогресс квеста
+$golems = [
+    'Ледяной голем'  => 'lg',
+    'Огненный голем' => 'og',
+    'Каменный голем' => 'kg',
+];
+if (isset($golems[$uz_login])) {
+    $key = $golems[$uz_login];
+    $kvest = !empty($f['kvest']) ? @unserialize($f['kvest']) : [];
+    if (!is_array($kvest)) $kvest = [];
+    if (!isset($kvest['loc56ks']) || !is_array($kvest['loc56ks'])) $kvest['loc56ks'] = [];
+    $kvest['loc56ks'][$key] = 1;
+    $f['kvest'] = serialize($kvest);
+    $kv_esc = $db->real_escape_string($f['kvest']);
+    $udar_log = '<span style="color:' . $female . '">' . $me_login . ' выбивает Сердце ' . mb_strtolower(str_replace(' голем', '', $uz_login), 'UTF-8') . ' голема</span> <br/> ' . $udar_log;
+    $db->query("UPDATE `users` SET `kvest` = '{$kv_esc}' WHERE `id` = " . (int)$f['id'] . " LIMIT 1;");
+}
+
+// Тролль и Дракон — предмет получает winner
+if ($uz_login === 'Тролль' || $uz_login === 'Дракон') {
+    $winner = null;
+    $q = $db->query("SELECT `login` FROM `combat` WHERE `boi_id` = " . (int)$me['boi_id'] . " AND `uron_boi` > 999 AND `flag_bot` = 0 AND `komanda` = 2;");
+    if ($q && $q->num_rows > 0) {
+        $l = [];
+        while ($logins = $q->fetch_assoc()) {
+            $l[] = $logins['login'];
+        }
+        if (!empty($l)) {
+            shuffle($l);
+            $winner = $l[0];
+        }
+    }
+    if ($winner !== null) {
+        $itemId = ($uz_login === 'Тролль') ? 127 : 157;
+        $item = $items->base_shmot($itemId);
+        if ($item !== null) {
+            $winner_esc = $db->real_escape_string($winner);
+            if ($uz_login === 'Тролль') {
+                $udar_log = '<span style="color:' . $female . '">' . $winner . ' подбирает с распростертого тролля ' . $item['name'] . '</span> <br/> ' . $udar_log;
+            } else {
+                $udar_log = '<span style="color:' . $female . '">' . $winner . ' подбирает с убитого монстра ' . $item['name'] . '</span> <br/> ' . $udar_log;
+            }
+            // ИСПРАВЛЕНО: было $me_login, стало $winner
+            $items->add_item($winner_esc, $item['id'], 1);
+        }
+    }
+}
+
+// Случайный дроп свитков
+if (mt_rand(1, 100) <= 1) {
+    $item = $items->base_shmot(121); // свиток нападения
+    if ($item !== null) {
+        if (!empty($me['klan'])) klan_points($me['klan'], 1);
+        $udar_log = '<span style="color:' . $female . '">' . $me_login . ' выбивает ' . $item['name'] . '</span> <br/> ' . $udar_log;
+        $items->add_item($me_login, $item['id'], 1);
+    }
+}
+if (mt_rand(1, 100) <= 1) {
+    $item = $items->base_shmot(122); // свиток развоплощения
+    if ($item !== null) {
+        if (!empty($me['klan'])) klan_points($me['klan'], 1);
+        $udar_log = '<span style="color:' . $female . '">' . $me_login . ' выбивает ' . $item['name'] . '</span> <br/> ' . $udar_log;
+        $items->add_item($me_login, $item['id'], 1);
+    }
+}

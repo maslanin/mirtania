@@ -1,230 +1,92 @@
 <?php
-##############
-# 24.12.2014 #
-##############
+/**
+ * Использование лечилок/маны в бою (сумка).
+ * PHP 8.2-совместимая версия.
+ *
+ * ИСПРАВЛЕНО: битая кодировка, два case 191, Молния судьбы для игроков.
+ */
 
-$q = $db->query("select `invent`.`id` from `invent`,`item` where `invent`.`login`='{$me['login']}' and `invent`.`flag_rinok`=0 and `invent`.`flag_equip`=1 and `item`.`equip`='sumka' and `invent`.`ido`=`item`.`id` limit 1;");
-if($q->num_rows == 0) msg2('У вас ничего нет в сумке',1);
+$q = $db->query("SELECT `invent`.`id` FROM `invent`, `item` WHERE `invent`.`login` = '" . $db->real_escape_string($me['login']) . "' AND `invent`.`flag_rinok` = 0 AND `invent`.`flag_equip` = 1 AND `item`.`equip` = 'sumka' AND `invent`.`ido` = `item`.`id` LIMIT 1;");
+if ($q === false || $q->num_rows === 0) {
+    msg2('У вас ничего нет в сумке', 1);
+}
 $sum = $q->fetch_assoc();
+$item = $items->shmot((int)$sum['id']);
+if ($item === null) {
+    msg2('Вещь не найдена', 1);
+}
 $log_hp = '';
-$item = $items->shmot($sum['id']);
-switch($item['ido']):
-case 153:
-	$regen = 50;
-	if($regen + $me['hpnow'] > $me['hpmax']) $regen = $me['hpmax'] - $me['hpnow'];
-	$me['hpnow'] += $regen;
-	$log_hp = '<span style="color:'.$notice.'">'.$me['login'].' использует '.$item['name'].'</span><br/>';
-	$q = $db->query("delete from `invent` where login='{$me['login']}' and id={$sum['id']} limit 1;");
-	$q = $db->query("update `users` set hpnow={$me['hpnow']} where id={$f['id']} limit 1;");
-	$q = $db->query("update `combat` set hpnow={$me['hpnow']} where id={$me['id']} limit 1;");
-break;
 
-case 154:
-	$regen = 100;
-	if($regen + $me['hpnow'] > $me['hpmax']) $regen = $me['hpmax'] - $me['hpnow'];
-	$me['hpnow'] += $regen;
-	$log_hp = '<span style="color:'.$notice.'">'.$me['login'].' использует '.$item['name'].'</span><br/>';
-	$q = $db->query("delete from `invent` where login='{$me['login']}' and id={$sum['id']} limit 1;");
-	$q = $db->query("update `users` set hpnow={$me['hpnow']} where id={$f['id']} limit 1;");
-	$q = $db->query("update `combat` set hpnow={$me['hpnow']} where id={$me['id']} limit 1;");
-break;
+// HP-зелья: [ido => восстановление HP]
+$hpPotions = [
+    153 => 50, 154 => 100, 155 => 150, 156 => 250,
+    625 => 350, 626 => 500, 627 => 750, 628 => 1000, 629 => 1500,
+];
+// MP-зелья
+$mpPotions = [
+    191 => 50, 192 => 100, 193 => 150, 194 => 250,
+    630 => 350, 631 => 500, 632 => 750, 633 => 1000, 634 => 1500,
+];
 
-case 155:
-	$regen = 150;
-	if($regen + $me['hpnow'] > $me['hpmax']) $regen = $me['hpmax'] - $me['hpnow'];
-	$me['hpnow'] += $regen;
-	$log_hp = '<span style="color:'.$notice.'">'.$me['login'].' использует '.$item['name'].'</span><br/>';
-	$q = $db->query("delete from `invent` where login='{$me['login']}' and id={$sum['id']} limit 1;");
-	$q = $db->query("update `users` set hpnow={$me['hpnow']} where id={$f['id']} limit 1;");
-	$q = $db->query("update `combat` set hpnow={$me['hpnow']} where id={$me['id']} limit 1;");
-break;
+$ido = (int)$item['ido'];
 
-case 156:
-	$regen = 250;
-	if($regen + $me['hpnow'] > $me['hpmax']) $regen = $me['hpmax'] - $me['hpnow'];
-	$me['hpnow'] += $regen;
-	$log_hp = '<span style="color:'.$notice.'">'.$me['login'].' использует '.$item['name'].'</span><br/>';
-	$q = $db->query("delete from `invent` where login='{$me['login']}' and id={$sum['id']} limit 1;");
-	$q = $db->query("update `users` set hpnow={$me['hpnow']} where id={$f['id']} limit 1;");
-	$q = $db->query("update `combat` set hpnow={$me['hpnow']} where id={$me['id']} limit 1;");
-break;
+if (isset($hpPotions[$ido])) {
+    $regen = $hpPotions[$ido];
+    if ($regen + $me['hpnow'] > $me['hpmax']) $regen = $me['hpmax'] - $me['hpnow'];
+    $me['hpnow'] += $regen;
+    $log_hp = '<span style="color:' . $notice . '">' . $me['login'] . ' использует ' . $item['name'] . '</span><br/>';
+    $db->query("DELETE FROM `invent` WHERE `login` = '" . $db->real_escape_string($me['login']) . "' AND `id` = " . (int)$sum['id'] . " LIMIT 1;");
+    $db->query("UPDATE `users` SET `hpnow` = " . (int)$me['hpnow'] . " WHERE `id` = " . (int)$f['id'] . " LIMIT 1;");
+    $db->query("UPDATE `combat` SET `hpnow` = " . (int)$me['hpnow'] . " WHERE `id` = " . (int)$me['id'] . " LIMIT 1;");
+} elseif (isset($mpPotions[$ido])) {
+    $regen = $mpPotions[$ido];
+    if ($regen + $me['mananow'] > $me['manamax']) $regen = $me['manamax'] - $me['mananow'];
+    $me['mananow'] += $regen;
+    $log_hp = '<span style="color:' . $notice . '">' . $me['login'] . ' использует ' . $item['name'] . '</span><br/>';
+    $db->query("DELETE FROM `invent` WHERE `login` = '" . $db->real_escape_string($me['login']) . "' AND `id` = " . (int)$sum['id'] . " LIMIT 1;");
+    $db->query("UPDATE `users` SET `mananow` = " . (int)$me['mananow'] . " WHERE `id` = " . (int)$f['id'] . " LIMIT 1;");
+    $db->query("UPDATE `combat` SET `mananow` = " . (int)$me['mananow'] . " WHERE `id` = " . (int)$me['id'] . " LIMIT 1;");
+} elseif ($ido == 157) {
+    // Молния судьбы
+    $lgn = isset($_REQUEST['lgn']) ? (int)$_REQUEST['lgn'] : 0;
+    $kom = ((int)$me['komanda'] == 1) ? 2 : 1;
+    $kom3 = [];
+    $q = $db->query("SELECT * FROM `combat` WHERE `boi_id` = {$bid} AND `komanda` = {$kom} AND `flag_bot` = 0;");
+    if ($q) {
+        while ($hz = $q->fetch_assoc()) {
+            if ($hz['hpnow'] > 1) $kom3[(int)$hz['id']] = $hz['login'] . ' (' . $hz['hpnow'] . '/' . $hz['hpmax'] . ')';
+        }
+    }
+    if (empty($lgn)) {
+        echo '<div class="board" style="text-align:left">';
+        echo '<form action="battle.php?mod=sumka" method="POST">';
+        echo '<select name="lgn">';
+        foreach ($kom3 as $key => $val) echo '<option value="' . $key . '">' . $val . '</option>';
+        echo '</select><br/>';
+        echo '<input type="submit" value="Молния судьбы"></form></div>';
+        knopka('battle.php', 'Вернуться', 1);
+        fin();
+    }
+    if ($lgn <= 0) msg('Не выбран соперник для удара!', 1);
+    $q = $db->query("SELECT * FROM `combat` WHERE `id` = {$lgn} AND `boi_id` = {$bid} LIMIT 1;");
+    $hz = $q ? $q->fetch_assoc() : null;
+    if (!$hz) msg2('Боец не найден!', 1);
+    if ($hz['komanda'] == $me['komanda']) msg2('Против своей команды нельзя', 1);
+    if ($hz['hpnow'] <= 0) msg2('Противник уже убит', 1);
+    if ($hz['flag_bot'] == 1) msg2('Боец не найден!', 1);
 
-case 625:
-	$regen = 350;
-	if($regen + $me['hpnow'] > $me['hpmax']) $regen = $me['hpmax'] - $me['hpnow'];
-	$me['hpnow'] += $regen;
-	$log_hp = '<span style="color:'.$notice.'">'.$me['login'].' использует '.$item['name'].'</span><br/>';
-	$q = $db->query("delete from `invent` where login='{$me['login']}' and id={$sum['id']} limit 1;");
-	$q = $db->query("update `users` set hpnow={$me['hpnow']} where id={$f['id']} limit 1;");
-	$q = $db->query("update `combat` set hpnow={$me['hpnow']} where id={$me['id']} limit 1;");
-break;
+    $log_hp = '<span style="color:' . $notice . '">Ветвистый удар молнии с треском бьет в ' . $hz['login'] . ', оставляя 1 ХП</span><br/>';
+    // ИСПРАВЛЕНО: обновляем combat для игроков тоже
+    $db->query("UPDATE `combat` SET `hpnow` = 1, `time_udar` = '{$t}' WHERE `id` = " . (int)$hz['id'] . " AND `hpnow` > 1 LIMIT 1;");
+    $db->query("UPDATE `combat` SET `time_udar` = '{$t}' WHERE `id` = " . (int)$me['id'] . " LIMIT 1;");
+    if (empty($hz['flag_bot'])) {
+        $db->query("UPDATE `users` SET `hpnow` = 1 WHERE `login` = '" . $db->real_escape_string($hz['login']) . "' AND `hpnow` > 1 LIMIT 1;");
+    }
+    $db->query("DELETE FROM `invent` WHERE `login` = '" . $db->real_escape_string($me['login']) . "' AND `id` = " . (int)$sum['id'] . " LIMIT 1;");
+} else {
+    msg('Неизвестная ошибка', 1);
+}
 
-case 626:
-	$regen = 500;
-	if($regen + $me['hpnow'] > $me['hpmax']) $regen = $me['hpmax'] - $me['hpnow'];
-	$me['hpnow'] += $regen;
-	$log_hp = '<span style="color:'.$notice.'">'.$me['login'].' использует '.$item['name'].'</span><br/>';
-	$q = $db->query("delete from `invent` where login='{$me['login']}' and id={$sum['id']} limit 1;");
-	$q = $db->query("update `users` set hpnow={$me['hpnow']} where id={$f['id']} limit 1;");
-	$q = $db->query("update `combat` set hpnow={$me['hpnow']} where id={$me['id']} limit 1;");
-break;
-
-case 627:
-	$regen = 750;
-	if($regen + $me['hpnow'] > $me['hpmax']) $regen = $me['hpmax'] - $me['hpnow'];
-	$me['hpnow'] += $regen;
-	$log_hp = '<span style="color:'.$notice.'">'.$me['login'].' использует '.$item['name'].'</span><br/>';
-	$q = $db->query("delete from `invent` where login='{$me['login']}' and id={$sum['id']} limit 1;");
-	$q = $db->query("update `users` set hpnow={$me['hpnow']} where id={$f['id']} limit 1;");
-	$q = $db->query("update `combat` set hpnow={$me['hpnow']} where id={$me['id']} limit 1;");
-break;
-
-case 628:
-	$regen = 1000;
-	if($regen + $me['hpnow'] > $me['hpmax']) $regen = $me['hpmax'] - $me['hpnow'];
-	$me['hpnow'] += $regen;
-	$log_hp = '<span style="color:'.$notice.'">'.$me['login'].' использует '.$item['name'].'</span><br/>';
-	$q = $db->query("delete from `invent` where login='{$me['login']}' and id={$sum['id']} limit 1;");
-	$q = $db->query("update `users` set hpnow={$me['hpnow']} where id={$f['id']} limit 1;");
-	$q = $db->query("update `combat` set hpnow={$me['hpnow']} where id={$me['id']} limit 1;");
-break;
-
-case 629:
-	$regen = 1500;
-	if($regen + $me['hpnow'] > $me['hpmax']) $regen = $me['hpmax'] - $me['hpnow'];
-	$me['hpnow'] += $regen;
-	$log_hp = '<span style="color:'.$notice.'">'.$me['login'].' использует '.$item['name'].'</span><br/>';
-	$q = $db->query("delete from `invent` where login='{$me['login']}' and id={$sum['id']} limit 1;");
-	$q = $db->query("update `users` set hpnow={$me['hpnow']} where id={$f['id']} limit 1;");
-	$q = $db->query("update `combat` set hpnow={$me['hpnow']} where id={$me['id']} limit 1;");
-break;
-
-case 191:
-	$regen = 50;
-	if($regen + $me['mananow'] > $me['manamax']) $regen = $me['manamax'] - $me['mananow'];
-	$me['mananow'] += $regen;
-	$log_hp = '<span style="color:'.$notice.'">'.$me['login'].' использует '.$item['name'].'</span><br/>';
-	$q = $db->query("delete from `invent` where login='{$me['login']}' and id={$sum['id']} limit 1;");
-	$q = $db->query("update `users` set mananow={$me['mananow']} where id={$f['id']} limit 1;");
-	$q = $db->query("update `combat` set mananow={$me['mananow']} where id={$me['id']} limit 1;");
-break;
-
-case 191:
-	$regen = 100;
-	if($regen + $me['mananow'] > $me['manamax']) $regen = $me['manamax'] - $me['mananow'];
-	$me['mananow'] += $regen;
-	$log_hp = '<span style="color:'.$notice.'">'.$me['login'].' использует '.$item['name'].'</span><br/>';
-	$q = $db->query("delete from `invent` where login='{$me['login']}' and id={$sum['id']} limit 1;");
-	$q = $db->query("update `users` set mananow={$me['mananow']} where id={$f['id']} limit 1;");
-	$q = $db->query("update `combat` set mananow={$me['mananow']} where id={$me['id']} limit 1;");
-break;
-
-case 193:
-	$regen = 150;
-	if($regen + $me['mananow'] > $me['manamax']) $regen = $me['manamax'] - $me['mananow'];
-	$me['mananow'] += $regen;
-	$log_hp = '<span style="color:'.$notice.'">'.$me['login'].' использует '.$item['name'].'</span><br/>';
-	$q = $db->query("delete from `invent` where login='{$me['login']}' and id={$sum['id']} limit 1;");
-	$q = $db->query("update `users` set mananow={$me['mananow']} where id={$f['id']} limit 1;");
-	$q = $db->query("update `combat` set mananow={$me['mananow']} where id={$me['id']} limit 1;");
-break;
-
-case 194:
-	$regen = 250;
-	if($regen + $me['mananow'] > $me['manamax']) $regen = $me['manamax'] - $me['mananow'];
-	$me['mananow'] += $regen;
-	$log_hp = '<span style="color:'.$notice.'">'.$me['login'].' использует '.$item['name'].'</span><br/>';
-	$q = $db->query("delete from `invent` where login='{$me['login']}' and id={$sum['id']} limit 1;");
-	$q = $db->query("update `users` set mananow={$me['mananow']} where id={$f['id']} limit 1;");
-	$q = $db->query("update `combat` set mananow={$me['mananow']} where id={$me['id']} limit 1;");
-break;
-
-case 630:
-	$regen = 350;
-	if($regen + $me['mananow'] > $me['manamax']) $regen = $me['manamax'] - $me['mananow'];
-	$me['mananow'] += $regen;
-	$log_hp = '<span style="color:'.$notice.'">'.$me['login'].' использует '.$item['name'].'</span><br/>';
-	$q = $db->query("delete from `invent` where login='{$me['login']}' and id={$sum['id']} limit 1;");
-	$q = $db->query("update `users` set mananow={$me['mananow']} where id={$f['id']} limit 1;");
-	$q = $db->query("update `combat` set mananow={$me['mananow']} where id={$me['id']} limit 1;");
-break;
-
-case 631:
-	$regen = 500;
-	if($regen + $me['mananow'] > $me['manamax']) $regen = $me['manamax'] - $me['mananow'];
-	$me['mananow'] += $regen;
-	$log_hp = '<span style="color:'.$notice.'">'.$me['login'].' использует '.$item['name'].'</span><br/>';
-	$q = $db->query("delete from `invent` where login='{$me['login']}' and id={$sum['id']} limit 1;");
-	$q = $db->query("update `users` set mananow={$me['mananow']} where id={$f['id']} limit 1;");
-	$q = $db->query("update `combat` set mananow={$me['mananow']} where id={$me['id']} limit 1;");
-break;
-
-case 632:
-	$regen = 750;
-	if($regen + $me['mananow'] > $me['manamax']) $regen = $me['manamax'] - $me['mananow'];
-	$me['mananow'] += $regen;
-	$log_hp = '<span style="color:'.$notice.'">'.$me['login'].' использует '.$item['name'].'</span><br/>';
-	$q = $db->query("delete from `invent` where login='{$me['login']}' and id={$sum['id']} limit 1;");
-	$q = $db->query("update `users` set mananow={$me['mananow']} where id={$f['id']} limit 1;");
-	$q = $db->query("update `combat` set mananow={$me['mananow']} where id={$me['id']} limit 1;");
-break;
-
-case 633:
-	$regen = 1000;
-	if($regen + $me['mananow'] > $me['manamax']) $regen = $me['manamax'] - $me['mananow'];
-	$me['mananow'] += $regen;
-	$log_hp = '<span style="color:'.$notice.'">'.$me['login'].' использует '.$item['name'].'</span><br/>';
-	$q = $db->query("delete from `invent` where login='{$me['login']}' and id={$sum['id']} limit 1;");
-	$q = $db->query("update `users` set mananow={$me['mananow']} where id={$f['id']} limit 1;");
-	$q = $db->query("update `combat` set mananow={$me['mananow']} where id={$me['id']} limit 1;");
-break;
-
-case 634:
-	$regen = 1500;
-	if($regen + $me['mananow'] > $me['manamax']) $regen = $me['manamax'] - $me['mananow'];
-	$me['mananow'] += $regen;
-	$log_hp = '<span style="color:'.$notice.'">'.$me['login'].' использует '.$item['name'].'</span><br/>';
-	$q = $db->query("delete from `invent` where login='{$me['login']}' and id={$sum['id']} limit 1;");
-	$q = $db->query("update `users` set mananow={$me['mananow']} where id={$f['id']} limit 1;");
-	$q = $db->query("update `combat` set mananow={$me['mananow']} where id={$me['id']} limit 1;");
-break;
-
-case 157:
-	$lgn = (isset($_REQUEST['lgn'])) ? $_REQUEST['lgn'] : 0;
-	if($me['komanda'] == 1) $kom = 2; else $kom = 1;
-	$q = $db->query("select * from `combat` where boi_id={$bid} and komanda={$kom} and flag_bot=0;");
-	while($hz = $q->fetch_assoc())
-		{
-		if($hz['hpnow'] > 1) $kom3[$hz['id']] = $hz['login'].' ('.$hz['hpnow'].'/'.$hz['hpmax'].')';
-		unset($hz);
-		}
-	if(empty($lgn))
-		{
-		echo '<div class="board" style="text-align:left">';
-		echo '<form action="battle.php?mod=sumka" method="POST">';
-		echo '<select name="lgn">';
-		foreach($kom3 as $key => $val) echo '<option value="'.$key.'">'.$val.'</option>';
-		echo '</select>';
-		echo '<br/>';
-		echo '<input type="submit" value="Молния судьбы"></form></div>';
-		knopka('battle.php', 'Вернуться', 1);
-		fin();
-		}
-	$lgn = intval($lgn);	//эта переменная - ид бойца из таблицы combat
-	if(empty($lgn) or $lgn <= 0) msg('Не выбран соперник для удара!',1);
-	$q = $db->query("select * from `combat` where id={$lgn} and boi_id={$bid} limit 1;");
-	$hz = $q->fetch_assoc() or msg2('Боец не найден!',1);
-	if($hz['komanda'] == $me['komanda']) msg2('Против своей команды нельзя',1);
-	if($hz['hpnow'] <= 0) msg2('Противник уже убит', 1);
-	if($hz['flag_bot'] == 1) msg2('Боец не найден!', 1);
-	$log_hp = '<span style="color:'.$notice.'">ветвистый удар молнии с треском бьет в '.$hz['login'].', оставляя 1 ХП</span><br/>';
-	$q = $db->query("update `combat` set hpnow=1,time_udar='{$t}' where id={$hz['id']} and hpnow>1 and flag_bot=1 limit 1;");
-	$q = $db->query("update `combat` set time_udar='{$t}' where login={$me['login']} limit 1;");
-	if($hz['flag_bot'] == 0) $q = $db->query("update `users` set hpnow=1 where login={$hz['login']} and hpnow>1 limit 1;");
-	$q = $db->query("delete from `invent` where login='{$me['login']}' and id={$sum['id']} limit 1;");
-break;
-
-default: msg('Неизвестная ошибка',1); break;
-endswitch;
-if(!empty($log_hp)) $q = $db->query("insert into `battlelog` values (0,{$bid},'{$t}','{$log_hp}');");
-?>
+if (!empty($log_hp)) {
+    $db->query("INSERT INTO `battlelog` VALUES (0, {$bid}, '{$t}', '{$log_hp}');");
+}

@@ -1,163 +1,69 @@
 <?php
-##############
-# 24.12.2014 #
-##############
+/**
+ * Арт-эффекты в бою.
+ * PHP 8.2-совместимая версия.
+ */
 
-//действия арт-эффектов
-$art_uron = 0;
-$art_hp = 0;
+$art_uron   = 0;
+$art_hp     = 0;
 $s_art_uron = 0;
-$s_art_hp = 0;
-if(isset($me['art']['лечение']))
-	{
-	if(mt_rand(1, 100) <= 70 && $me['hpnow'] < $me['hpmax'])
-		{
-		$hp = mt_rand(ceil($me['lvl'] * 1.5), $me['lvl'] * 4 * $me['art']['лечение']);
-		$me['hpnow'] += $hp;
-		if($me['hpnow'] > $me['hpmax']) $me['hpnow'] = $me['hpmax'];
-		$me['hpnow'] = $me['hpnow'];
-		if($me['flag_bot'] == 0) $q = $db->query("update `users` set hpnow={$me['hpnow']} where login='{$me['login']}' limit 1;");
-		$q = $db->query("update `combat` set hpnow={$me['hpnow']} where id='{$me['id']}' limit 1;");
-		$art_hp += $hp;
-		}
-	}
-if(isset($uz['art']['лечение']))
-	{
-	if(mt_rand(1, 100) <= 70 && $uz['hpnow'] < $uz['hpmax'])
-		{
-		$hp = mt_rand(ceil($uz['lvl'] * 1.5), $uz['lvl'] * 4 * $uz['art']['лечение']);
-		$uz['hpnow'] += $hp;
-		if($uz['hpnow'] > $uz['hpmax']) $uz['hpnow'] = $uz['hpmax'];
-		if($uz['flag_bot'] == 0) $q = $db->query("update `users` set hpnow={$uz['hpnow']} where login='{$uz['login']}' limit 1;");
-		$q = $db->query("update `combat` set hpnow={$uz['hpnow']} where id='{$uz['id']}' limit 1;");
-		$s_art_hp += $hp;
-		}
-	}
-if(isset($me['art']['исцеление']))
-	{
-	if(mt_rand(1, 100) <= 70 && $me['hpnow'] < $me['hpmax'])
-		{
-		$hp = mt_rand($me['lvl'] * 3, $me['lvl'] * 5 * $me['art']['исцеление']);
-		$me['hpnow'] += $hp;
-		if($me['hpnow'] > $me['hpmax']) $me['hpnow'] = $me['hpmax'];
-		$me['hpnow'] = $me['hpnow'];
-		if($me['flag_bot'] == 0) $q = $db->query("update `users` set hpnow={$me['hpnow']} where login='{$me['login']}' limit 1;");
-		$q = $db->query("update `combat` set hpnow={$me['hpnow']} where id='{$me['id']}' limit 1;");
-		$art_hp += $hp;
-		}
-	}
-if(isset($uz['art']['исцеление']))
-	{
-	if(mt_rand(1, 100) <= 70 && $uz['hpnow'] < $uz['hpmax'])
-		{
-		$hp = mt_rand($uz['lvl'] * 3, $uz['lvl'] * 5 * $uz['art']['исцеление']);
-		$uz['hpnow'] += $hp;
-		if($uz['hpnow'] > $uz['hpmax']) $uz['hpnow'] = $uz['hpmax'];
-		if($uz['flag_bot'] == 0) $q = $db->query("update `users` set hpnow='{$uz['hpnow']}' where login='{$uz['login']}' limit 1;");
-		$q = $db->query("update `combat` set hpnow={$uz['hpnow']} where id='{$uz['id']}' limit 1;");
-		$s_art_hp += $hp;
-		}
-	}
-if(isset($me['art']['вампиризм']))
-	{
-	if(mt_rand(1, 100) <= 70)
-		{
-		$hp = mt_rand(ceil($me['lvl'] * 1.5), $me['lvl'] * 4 * $me['art']['вампиризм']);
-		$me['hpnow'] += $hp;
-		$uron_zaudar += $hp;
-		if($me['hpnow'] > $me['hpmax']) $me['hpnow'] = $me['hpmax'];
-		$me['hpnow'] = $me['hpnow'];
-		if($me['flag_bot'] == 0) $q = $db->query("update `users` set hpnow={$me['hpnow']} where login='{$me['login']}' limit 1;");
-		$q = $db->query("update `combat` set hpnow={$me['hpnow']} where id='{$me['id']}' limit 1;");
-		$art_hp += $hp;
-		$art_uron += $hp;
-		}
-	}
-if(isset($uz['art']['вампиризм']))
-	{
-	if(mt_rand(1, 100) <= 70)
-		{
-		$hp = mt_rand(ceil($uz['lvl'] * 1.5), $uz['lvl'] * 4 * $uz['art']['вампиризм']);
-		$uz['hpnow'] += $hp;
-		$s_uron_zaudar += $hp;
-		if($uz['hpnow'] > $uz['hpmax']) $uz['hpnow'] = $uz['hpmax'];
-		if($uz['flag_bot'] == 0) $q = $db->query("update `users` set hpnow={$uz['hpnow']} where login='{$uz['login']}' limit 1;");
-		$q = $db->query("update `combat` set hpnow={$uz['hpnow']} where id='{$uz['id']}' limit 1;");
-		$s_art_hp += $hp;
-		$s_art_uron += $hp;
-		}
-	}
-if(isset($me['art']['огонь']))
-	{
-	if(mt_rand(1, 100) <= 70)
-		{
-		$uron = mt_rand($me['lvl'] * 3, $me['lvl'] * 5 * $me['art']['огонь']);
-		$uron_zaudar += $uron;
-		$art_uron += $uron;
-		}
-	}
-if(isset($uz['art']['огонь']))
-	{
-	if(mt_rand(1, 100) <= 70)
-		{
-		$uron = mt_rand($uz['lvl'] * 3, $uz['lvl'] * 5 * $uz['art']['огонь']);
-		$s_uron_zaudar += $uron;
-		$s_art_uron += $uron;
-		}
-	}
-if(isset($me['art']['пламя']))
-	{
-	if(mt_rand(1, 100) <= 70)
-		{
-		$uron = mt_rand($me['lvl'] * 3, $me['lvl'] * 5 * $me['art']['пламя']);
-		$uron_zaudar += $uron;
-		$art_uron += $uron;
-		}
-	}
-if(isset($uz['art']['пламя']))
-	{
-	if(mt_rand(1, 100) <= 70)
-		{
-		$uron = mt_rand($uz['lvl'] * 3, $uz['lvl'] * 5 * $uz['art']['пламя']);
-		$s_uron_zaudar += $uron;
-		$s_art_uron += $uron;
-		}
-	}
-if(isset($me['art']['ветер']))
-	{
-	if(mt_rand(1, 100) <= 70)
-		{
-		$uron = mt_rand($me['lvl'] * 3, $me['lvl'] * 5 * $me['art']['ветер']);
-		$uron_zaudar += $uron;
-		$art_uron += $uron;
-		}
-	}
-if(isset($uz['art']['ветер']))
-	{
-	if(mt_rand(1, 100) <= 70)
-		{
-		$uron = mt_rand($me['lvl'] * 3, $uz['lvl'] * 5 * $uz['art']['ветер']);
-		$s_uron_zaudar += $uron;
-		$s_art_uron += $uron;
-		}
-	}
-if(isset($me['art']['лед']))
-	{
-	if(mt_rand(1, 100) <= 70)
-		{
-		$uron = mt_rand($me['lvl'] * 3, $me['lvl'] * 5 * $me['art']['лед']);
-		$uron_zaudar += $uron;
-		$art_uron += $uron;
-		}
-	}
-if(isset($uz['art']['лед']))
-	{
-	if(mt_rand(1, 100) <= 70)
-		{
-		$uron = mt_rand($me['lvl'] * 3, $uz['lvl'] * 5 * $uz['art']['лед']);
-		$s_uron_zaudar += $uron;
-		$s_art_uron += $uron;
-		}
-	}
-//$art_log = '<b>'.$me['login'].'</b>, арт-урон: '.$art_uron.', арт-лечение: '.$art_hp.' / <b>'.$uz['login'].'</b>, арт-урон: '.$s_art_uron.', арт-лечение: '.$s_art_hp.'<br/>';
-?>
+$s_art_hp   = 0;
+
+/**
+ * Применить арт-эффект для одного бойца.
+ */
+function apply_art(&$actor, $art_name, &$uron_zaudar, &$art_uron, &$art_hp, $db, $side)
+{
+    if (empty($actor['art'][$art_name])) {
+        return;
+    }
+    $lvl = (int)$actor['lvl'];
+    $power = (int)$actor['art'][$art_name];
+
+    if ($art_name === 'лечение' || $art_name === 'исцеление') {
+        if (mt_rand(1, 100) <= 70 && $actor['hpnow'] < $actor['hpmax']) {
+            if ($art_name === 'лечение') {
+                $hp = mt_rand((int)ceil($lvl * 1.5), $lvl * 4 * $power);
+            } else {
+                $hp = mt_rand($lvl * 3, $lvl * 5 * $power);
+            }
+            $actor['hpnow'] += $hp;
+            if ($actor['hpnow'] > $actor['hpmax']) $actor['hpnow'] = $actor['hpmax'];
+            if (empty($actor['flag_bot'])) {
+                $db->query("UPDATE `users` SET `hpnow` = " . (int)$actor['hpnow'] . " WHERE `login` = '" . $db->real_escape_string($actor['login']) . "' LIMIT 1;");
+            }
+            $db->query("UPDATE `combat` SET `hpnow` = " . (int)$actor['hpnow'] . " WHERE `id` = " . (int)$actor['id'] . " LIMIT 1;");
+            $art_hp += $hp;
+        }
+    } elseif ($art_name === 'вампиризм') {
+        if (mt_rand(1, 100) <= 70) {
+            $hp = mt_rand((int)ceil($lvl * 1.5), $lvl * 4 * $power);
+            $actor['hpnow'] += $hp;
+            $uron_zaudar += $hp;
+            if ($actor['hpnow'] > $actor['hpmax']) $actor['hpnow'] = $actor['hpmax'];
+            if (empty($actor['flag_bot'])) {
+                $db->query("UPDATE `users` SET `hpnow` = " . (int)$actor['hpnow'] . " WHERE `login` = '" . $db->real_escape_string($actor['login']) . "' LIMIT 1;");
+            }
+            $db->query("UPDATE `combat` SET `hpnow` = " . (int)$actor['hpnow'] . " WHERE `id` = " . (int)$actor['id'] . " LIMIT 1;");
+            $art_hp += $hp;
+            $art_uron += $hp;
+        }
+    } elseif (in_array($art_name, ['огонь', 'пламя', 'ветер', 'лед'], true)) {
+        if (mt_rand(1, 100) <= 70) {
+            $uron = mt_rand($lvl * 3, $lvl * 5 * $power);
+            $uron_zaudar += $uron;
+            $art_uron += $uron;
+        }
+    }
+}
+
+if (!empty($me['art']) && is_array($me['art'])) {
+    foreach (array_keys($me['art']) as $art_name) {
+        apply_art($me, $art_name, $uron_zaudar, $art_uron, $art_hp, $db, 'me');
+    }
+}
+if (!empty($uz['art']) && is_array($uz['art'])) {
+    foreach (array_keys($uz['art']) as $art_name) {
+        apply_art($uz, $art_name, $s_uron_zaudar, $s_art_uron, $s_art_hp, $db, 'uz');
+    }
+}
