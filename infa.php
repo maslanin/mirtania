@@ -235,11 +235,22 @@ if ($mod == 'oruzh') {
 if ($mod == 'lookboi') {
     $l = get_login($lgn);
     $lgn = $l['login'];
+
+    // Ищем последний бой игрока
+    $login_esc = $db->real_escape_string($lgn);
+    $q = $db->query("SELECT * FROM `battle` WHERE `login` = '{$login_esc}' OR `login2` = '{$login_esc}' ORDER BY `id` DESC LIMIT 1;");
+    $boi = $q ? $q->fetch_assoc() : null;
+
+    if (!$boi) {
+        msg2('У персонажа ' . $lgn . ' ещё не было боёв.');
+        knopka('javascript:history.go(-1)', 'Вернуться', 1);
+        fin();
+    }
+
+    $bid = (int)$boi['id'];
+    $goboi = !empty($boi['flag_boi']) ? 1 : 0;
+
     echo '<div class="board" style="text-align:left">';
-    $bid = (int)$l['boi_id'];
-    $q = $db->query("SELECT `flag_boi` FROM `battle` WHERE `id` = '{$bid}' LIMIT 1;");
-    $bz = $q ? $q->fetch_assoc() : null;
-    $goboi = ($bz && !empty($bz['flag_boi'])) ? 1 : 0;
     $km1 = ''; $km2 = ''; $eof1 = ''; $eof2 = ''; $str1 = ''; $str2 = '';
 
     if ($goboi == 1) {
@@ -261,6 +272,7 @@ if ($mod == 'lookboi') {
     } else {
         $q = $db->query("SELECT * FROM `battlelog` WHERE `boi_id` = '{$bid}' ORDER BY `id`;");
     }
+
     $str = '';
     if ($q) {
         while ($log = $q->fetch_assoc()) {
